@@ -11,7 +11,7 @@ import SwiftUI
 struct GenTogetherApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            AboutMeView()
         }
     }
 }
