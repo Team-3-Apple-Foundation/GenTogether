@@ -11,7 +11,11 @@ import SwiftUI
 struct GenTogetherApp: App {
     var body: some Scene {
         WindowGroup {
+<<<<<<< Updated upstream
             ContentView()
+=======
+            RootTabView()
+>>>>>>> Stashed changes
         }
     }
 }
