@@ -101,11 +101,18 @@ struct AuthView: View {
                     Button {
                         Task { await authViewModel.continueAsGuest() }
                     } label: {
-                        Text("Continue as Guest")
-                            .frame(maxWidth: .infinity)
+                        Group {
+                            if authViewModel.loadingAction == .guest {
+                                ProgressView()
+                            } else {
+                                Text("Continue as Guest")
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
                     .disabled(authViewModel.isLoading)
+                    .accessibilityLabel("Continue as Guest")
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 32)

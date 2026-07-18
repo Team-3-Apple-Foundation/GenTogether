@@ -11,14 +11,29 @@ import Combine
 import UIKit
 import FirebaseAuth
 
+/// Which authentication action is currently in flight, if any. Keeping this
+/// as a single enum (rather than one Bool per button) means the Google,
+/// guest, and email buttons never show each other's loading spinner, while
+/// `run(as:)` still uses it to block two auth operations from overlapping.
+enum AuthLoadingAction: Equatable {
+    case none
+    case email
+    case google
+    case guest
+}
+
 @MainActor
 final class AuthViewModel: ObservableObject {
-    @Published var isLoading = false
+    @Published private(set) var loadingAction: AuthLoadingAction = .none
     @Published var errorMessage: String?
     @Published private(set) var isAuthenticated = false
     @Published private(set) var isAnonymous = false
     @Published private(set) var currentUserId: String?
     @Published private(set) var displayName: String?
+
+    /// True while any authentication operation is running. Kept for call
+    /// sites that don't need to distinguish which button triggered it.
+    var isLoading: Bool { loadingAction != .none }
 
     private let authService: AuthService
     private let userService: UserService
@@ -38,21 +53,37 @@ final class AuthViewModel: ObservableObject {
             }
     }
 
+    /// "Continue as Guest". Firestore profile creation is treated as
+    /// best-effort: if it fails, guest authentication has still succeeded
+    /// (the Firebase Auth state listener already updated isAuthenticated),
+    /// so we surface a profile-specific error instead of claiming sign-in
+    /// itself failed.
     func continueAsGuest() async {
-        await run {
-            let user = try await self.authService.continueAsGuest()
-            try await self.userService.createUserProfileIfNeeded(
-                userId: user.uid,
-                displayName: "Guest",
-                email: nil,
-                accountType: .guest
-            )
-            try await self.userService.updateLastLogin(userId: user.uid)
+        guard loadingAction == .none else { return }
+        loadingAction = .guest
+        errorMessage = nil
+        defer { loadingAction = .none }
+
+        do {
+            let user = try await authService.continueAsGuest()
+            do {
+                try await userService.createUserProfileIfNeeded(
+                    userId: user.uid,
+                    displayName: "Guest",
+                    email: nil,
+                    accountType: .guest
+                )
+                try await userService.updateLastLogin(userId: user.uid)
+            } catch {
+                errorMessage = "Guest sign-in succeeded, but the guest profile could not be saved: \(error.localizedDescription)"
+            }
+        } catch {
+            errorMessage = error.localizedDescription
         }
     }
 
     func createAccount(email: String, password: String, displayName: String) async {
-        await run {
+        await run(as: .email) {
             let user = try await self.authService.createAccount(email: email, password: password, displayName: displayName)
             try await self.userService.createUserProfileIfNeeded(
                 userId: user.uid,
@@ -64,7 +95,7 @@ final class AuthViewModel: ObservableObject {
     }
 
     func signIn(email: String, password: String) async {
-        await run {
+        await run(as: .email) {
             let user = try await self.authService.signIn(email: email, password: password)
             try await self.userService.updateLastLogin(userId: user.uid)
         }
@@ -74,14 +105,14 @@ final class AuthViewModel: ObservableObject {
     /// preserving the Firebase UID and every Firestore document already
     /// written under it.
     func upgradeGuestAccount(email: String, password: String, displayName: String) async {
-        await run {
+        await run(as: .email) {
             let user = try await self.authService.linkAnonymousAccount(email: email, password: password, displayName: displayName)
             try await self.userService.updateDisplayName(userId: user.uid, displayName: displayName)
         }
     }
 
     func signInWithGoogle() async {
-        await run {
+        await run(as: .google) {
             guard let presenter = Self.topViewController() else {
                 throw AuthServiceError.googleSignInFailed(GoogleSignInError.missingPresentingViewController)
             }
@@ -121,14 +152,15 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
-    private func run(_ operation: @escaping () async throws -> Void) async {
-        isLoading = true
+    private func run(as action: AuthLoadingAction, _ operation: @escaping () async throws -> Void) async {
+        guard loadingAction == .none else { return }
+        loadingAction = action
         errorMessage = nil
         do {
             try await operation()
         } catch {
             errorMessage = error.localizedDescription
         }
-        isLoading = false
+        loadingAction = .none
     }
 }

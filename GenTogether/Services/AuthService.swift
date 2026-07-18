@@ -53,16 +53,40 @@ final class AuthService: ObservableObject {
 
     /// Signs in anonymously for "Continue as guest". The resulting Firebase
     /// UID is stable until sign-out, so guest progress persists across app
-    /// launches as long as the user doesn't sign out.
+    /// launches as long as the user doesn't sign out. If Firebase already
+    /// has a cached anonymous session (e.g. app relaunch), that session is
+    /// reused instead of minting a new UID.
     @discardableResult
     func continueAsGuest() async throws -> User {
         try FirebaseEnvironment.requireConfigured()
+
+        if let existingUser = Auth.auth().currentUser, existingUser.isAnonymous {
+            debugLogGuestSignIn(uid: existingUser.uid, isAnonymous: true, reused: true)
+            return existingUser
+        }
+
         do {
             let result = try await Auth.auth().signInAnonymously()
+            debugLogGuestSignIn(uid: result.user.uid, isAnonymous: result.user.isAnonymous, reused: false)
             return result.user
         } catch {
+            let nsError = error as NSError
+            #if DEBUG
+            print("""
+            [AuthService] Guest sign-in failed — domain: \(nsError.domain), code: \(nsError.code)
+            If domain is FIRAuthErrorDomain and code is 17999/operation-not-allowed, \
+            Anonymous Authentication is likely disabled in the Firebase Console \
+            (Authentication → Sign-in method → Anonymous → Enable).
+            """)
+            #endif
             throw AuthServiceError.signInFailed(error)
         }
+    }
+
+    private func debugLogGuestSignIn(uid: String, isAnonymous: Bool, reused: Bool) {
+        #if DEBUG
+        print("[AuthService] Guest sign-in \(reused ? "reused existing session" : "succeeded") — uid: \(uid), isAnonymous: \(isAnonymous)")
+        #endif
     }
 
     @discardableResult

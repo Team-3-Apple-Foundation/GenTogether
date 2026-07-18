@@ -14,6 +14,13 @@ rules_version = '2';
 //      changed after creation, and content must be a non-empty, bounded
 //      string.
 //   4. Everything not explicitly allowed is denied.
+//   5. Anonymous (guest) accounts get full read/write access everywhere
+//      isSignedIn() is used above — guests are a first-class account type,
+//      not a second-class one. The one deliberate exception is comment
+//      likes: liking a comment requires a non-anonymous (registered)
+//      account, enforced via isNonAnonymous() below, which checks
+//      request.auth.token.firebase.sign_in_provider. Reading like data
+//      stays open to guests like everything else.
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -24,6 +31,13 @@ service cloud.firestore {
 
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // True only for a permanent (email/password or Google) account — false
+    // for Firebase Anonymous Auth sessions. Used to gate the one action
+    // guests can't take: liking a comment.
+    function isNonAnonymous() {
+      return isSignedIn() && request.auth.token.firebase.sign_in_provider != 'anonymous';
     }
 
     function isValidContent(content) {
@@ -105,6 +119,18 @@ service cloud.firestore {
           && isValidContent(request.resource.data.content);
 
         allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+
+        // ---- Comment likes ----
+        // One doc per liking user, keyed by that user's own UID, so a user
+        // can only ever create/delete their own like (never someone else's)
+        // and can't like the same comment twice. Reading like data is open
+        // to any signed-in user, including guests, so guests can still see
+        // like counts — only the write action requires a registered account.
+        match /likes/{likeUserId} {
+          allow read: if isSignedIn();
+          allow create, delete: if isNonAnonymous() && request.auth.uid == likeUserId;
+          allow update: if false;
+        }
       }
     }
 
