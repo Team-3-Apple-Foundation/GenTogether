@@ -1,18 +1,116 @@
-rules_version='2'
+rules_version = '2';
+
+// GenTogether Firestore security rules.
+//
+// Structure documented in FIREBASE_SETUP.md. Key principles:
+//   1. Public learning content (tutorialSteps, challenges, questions,
+//      communityQuestions) is read-only for signed-in clients; only the
+//      Firebase Console / Admin SDK / FirebaseSeeder (dev only, run
+//      through the Admin-privileged environment, not the app) may write it.
+//   2. Every user (guest or registered) may read/write only their own
+//      users/{userId} document and its subcollections.
+//   3. Community posts/comments may only be created, edited, or deleted by
+//      their owner (userId == request.auth.uid), ownership fields can't be
+//      changed after creation, and content must be a non-empty, bounded
+//      string.
+//   4. Everything not explicitly allowed is denied.
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidContent(content) {
+      return content is string
+        && content.size() > 0
+        && content.size() <= 1000;
+    }
+
+    // ---- Per-user data ----
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+
+      match /preferences/{preferenceId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /challengeProgress/{challengeId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /gameSessions/{sessionId} {
+        allow read, write: if isOwner(userId);
+
+        match /answers/{answerId} {
+          allow read, write: if isOwner(userId);
+        }
+      }
+    }
+
+    // ---- Public learning content: read-only for signed-in clients ----
+    match /tutorialSteps/{stepId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /challenges/{challengeId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+
+      match /questions/{questionId} {
+        allow read: if isSignedIn();
+        allow write: if false;
+      }
+    }
+
+    // ---- Community ----
+    match /communityQuestions/{questionId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /communityPosts/{postId} {
+      allow read: if isSignedIn();
+
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && isValidContent(request.resource.data.content);
+
+      allow update: if isSignedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.communityQuestionId == resource.data.communityQuestionId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && isValidContent(request.resource.data.content);
+
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+
+      match /comments/{commentId} {
+        allow read: if isSignedIn();
+
+        allow create: if isSignedIn()
+          && request.resource.data.userId == request.auth.uid
+          && isValidContent(request.resource.data.content);
+
+        allow update: if isSignedIn()
+          && resource.data.userId == request.auth.uid
+          && request.resource.data.userId == resource.data.userId
+          && request.resource.data.createdAt == resource.data.createdAt
+          && isValidContent(request.resource.data.content);
+
+        allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      }
+    }
+
+    // ---- Default deny for anything not explicitly matched above ----
     match /{document=**} {
-      // This rule allows anyone with your database reference to view, edit,
-      // and delete all data in your database. It is useful for getting
-      // started, but it is configured to expire after 30 days because it
-      // leaves your app open to attackers. At that time, all client
-      // requests to your database will be denied.
-      //
-      // Make sure to write security rules for your app before that time, or
-      // else all client requests to your database will be denied until you
-      // update your rules.
-      allow read, write: if request.time < timestamp.date(2026, 8, 17);
+      allow read, write: if false;
     }
   }
 }
