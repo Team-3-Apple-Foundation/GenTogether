@@ -13,6 +13,9 @@ struct GameView: View {
     @State private var currentIndex = 0
     @State private var results: [RoundResult] = []
 
+    /// Which result row is open. `nil` means none are open.
+    @State private var expandedResultID: UUID?
+
     private let rounds = GameRound.samples
 
     private var currentRound: GameRound {
@@ -49,24 +52,72 @@ struct GameView: View {
                 }
             }
             else {
-                VStack(spacing: 16) {
-                    Text("You got \(score) out of \(rounds.count)")
-                        .font(.title.weight(.bold))
+                Text("You got \(score) out of \(rounds.count)")
+                    .font(.title.weight(.bold))
 
-                    ForEach(results) { result in
-                        HStack(spacing: 12) {
-                            Image(systemName: result.isCorrect ? "checkmark.circle.fill" : "xmark.circle")
-                                .foregroundStyle(result.isCorrect ? .green : .orange)
-                            Text(result.isCorrect ? "Correct" : "Not quite")
-                            Spacer()
+                Text("Tap any round to see what gave it away.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                ScrollView {
+                    VStack(spacing: 8) {
+                        ForEach(results) { result in
+                            resultRow(for: result)
+                            Divider()
                         }
-                        .font(.title3)
                     }
                 }
             }
         }
         .padding(20)
     }
+    private func resultRow(for result: RoundResult) -> some View {
+        let isExpanded = (expandedResultID == result.id)
+
+        return VStack(alignment: .leading, spacing: 12) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    expandedResultID = isExpanded ? nil : result.id
+                }
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: result.isCorrect ? "checkmark.circle.fill" : "xmark.circle")
+                        .foregroundStyle(result.isCorrect ? .green : .orange)
+
+                    Text("Round \(result.number)")
+                        .foregroundStyle(.primary)
+
+                    Text(result.isCorrect ? "Correct" : "Not quite")
+                        .foregroundStyle(.secondary)
+
+                    Spacer()
+
+                    Image(systemName: "chevron.down")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                }
+                .font(.title3)
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint(isExpanded ? "Hides the explanation" : "Shows the explanation")
+
+            if isExpanded {
+                HStack(alignment: .top, spacing: 10) {
+                    Text("🦉")
+                        .accessibilityHidden(true)
+
+                    Text(result.round.clue)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.bottom, 4)
+            }
+        }
+    }
+
     private func answerButton(for answer: Answer) -> some View {
         Button{
             submit(answer)
@@ -84,7 +135,9 @@ struct GameView: View {
     }
     
     private func submit(_ answer: Answer) {
-        results.append(RoundResult(round: currentRound, answer: answer))
+        results.append(
+            RoundResult(number: currentIndex + 1, round: currentRound, answer: answer)
+        )
         currentIndex += 1
     }
 }
@@ -139,6 +192,7 @@ struct GameRound{
 
 struct RoundResult: Identifiable {
     let id = UUID()
+    let number: Int
     let round: GameRound
     let answer: Answer
 
