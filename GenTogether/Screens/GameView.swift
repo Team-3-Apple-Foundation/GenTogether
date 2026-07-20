@@ -10,13 +10,23 @@ import SwiftUI
 
 
 struct GameView: View {
+    /// Closes this screen and returns to whichever screen pushed it.
+    @Environment(\.dismiss) private var dismiss
+
     @State private var currentIndex = 0
     @State private var results: [RoundResult] = []
 
     /// Which result row is open. `nil` means none are open.
     @State private var expandedResultID: UUID?
 
-    private let rounds = GameRound.samples
+    @State private var showLeaveConfirmation = false
+
+//    private let rounds = GameRound.samples
+    let challenge: Challenge
+
+    private var rounds: [GameRound] {
+        challenge.rounds
+    }
 
     private var currentRound: GameRound {
         rounds[currentIndex]
@@ -33,14 +43,13 @@ struct GameView: View {
                     .font(.headline)
                     .foregroundStyle(.secondary)
 
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(Color(.secondarySystemGroupedBackground))
+                Image(currentRound.imageName)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(maxWidth: .infinity)
                     .frame(height: 320)
-                    .overlay{
-                        Image(systemName: "photo")
-                            .font(.system(size: 64))
-                            .foregroundStyle(Color(.systemGray3))
-                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                    .accessibilityLabel("Photo for round \(currentIndex + 1)")
 
                 Text("Is this a real photo, or made by AI?")
                     .font(.title2)
@@ -67,9 +76,42 @@ struct GameView: View {
                         }
                     }
                 }
+
+                Button {
+                    playAgain()
+                } label: {
+                    Label("Play again", systemImage: "arrow.clockwise")
+                        .font(.title3.weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 56)
+                }
+                .buttonStyle(.borderedProminent)
             }
         }
         .padding(20)
+        .navigationTitle(currentIndex < rounds.count ? challenge.title : "Your results")
+        .navigationBarTitleDisplayMode(.inline)
+        // Hides the automatic back chevron so ours is the only way out —
+        // otherwise the system button would skip the confirmation.
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    leaveTapped()
+                } label: {
+                    Label("Home", systemImage: "chevron.left")
+                }
+            }
+        }
+        .confirmationDialog(
+            "Leave this game?",
+            isPresented: $showLeaveConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Leave game", role: .destructive) { dismiss() }
+            Button("Keep playing", role: .cancel) { }
+        } message: {
+            Text("Your progress won't be saved.")
+        }
     }
     private func resultRow(for result: RoundResult) -> some View {
         let isExpanded = (expandedResultID == result.id)
@@ -134,6 +176,24 @@ struct GameView: View {
         .tint(answer.color)
     }
     
+    /// Clears every trace of the last game so a new one starts fresh.
+    private func playAgain() {
+        currentIndex = 0
+        results = []
+        expandedResultID = nil
+    }
+
+    /// Only interrupt with a confirmation if there's progress worth losing.
+    private func leaveTapped() {
+        let gameInProgress = currentIndex > 0 && currentIndex < rounds.count
+
+        if gameInProgress {
+            showLeaveConfirmation = true
+        } else {
+            dismiss()
+        }
+    }
+
     private func submit(_ answer: Answer) {
         results.append(
             RoundResult(number: currentIndex + 1, round: currentRound, answer: answer)
@@ -175,17 +235,36 @@ struct GameRound{
     let isAI: Bool
     let clue: String
 
-    static let samples: [GameRound] = [
-        GameRound(imageName: "round1", isAI: true,
-                  clue: "Look at the trees at the back. The leaves blur into mush. Real cameras keep that detail."),
-        GameRound(imageName: "round2", isAI: false,
-                  clue: "Every shadow falls the same way, which is a good sign of a real photograph."),
-        GameRound(imageName: "round3", isAI: true,
-                  clue: "Count the fingers. AI struggles with hands more than almost anything else."),
-        GameRound(imageName: "round4", isAI: false,
-                  clue: "The writing on the sign is sharp and readable. AI usually garbles small text."),
-        GameRound(imageName: "round5", isAI: true,
-                  clue: "The pattern repeats too perfectly — real fabric folds and breaks up patterns.")
+    static let nature: [GameRound] = [
+        GameRound(imageName: "nature1", isAI: true, clue: "..."),
+        GameRound(imageName: "nature2", isAI: false, clue: "..."),
+        GameRound(imageName: "nature3", isAI: true, clue: "..."),
+        GameRound(imageName: "nature4", isAI: false, clue: "..."),
+        GameRound(imageName: "nature5", isAI: true, clue: "...")
+    ]
+    
+    static let animals: [GameRound] = [
+        GameRound(imageName: "animal1", isAI: true, clue: "..."),
+        GameRound(imageName: "animal2", isAI: false, clue: "..."),
+        GameRound(imageName: "animal3", isAI: true, clue: "..."),
+        GameRound(imageName: "animal4", isAI: false, clue: "..."),
+        GameRound(imageName: "animal5", isAI: true, clue: "...")
+    ]
+    
+    static let art: [GameRound] = [
+        GameRound(imageName: "artCraft1", isAI: true, clue: "..."),
+        GameRound(imageName: "artCraft2", isAI: false, clue: "..."),
+        GameRound(imageName: "artCraft3", isAI: true, clue: "..."),
+        GameRound(imageName: "artCraft4", isAI: false, clue: "..."),
+        GameRound(imageName: "artCraft5", isAI: true, clue: "...")
+    ]
+    
+    static let food: [GameRound] = [
+        GameRound(imageName: "food1", isAI: true, clue: "..."),
+        GameRound(imageName: "food2", isAI: false, clue: "..."),
+        GameRound(imageName: "food3", isAI: true, clue: "..."),
+        GameRound(imageName: "food4", isAI: false, clue: "..."),
+        GameRound(imageName: "food5", isAI: true, clue: "...")
     ]
 }
 
@@ -204,5 +283,7 @@ struct RoundResult: Identifiable {
 
 
 #Preview {
-    GameView()
+    NavigationStack {
+        GameView(challenge: Challenge.samples[0])
+    }
 }
