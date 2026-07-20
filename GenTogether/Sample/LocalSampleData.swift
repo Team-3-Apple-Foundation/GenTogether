@@ -4,23 +4,20 @@
 //
 //  DEVELOPMENT / SAMPLE CONTENT — not read from Firestore.
 //
-//  Bundled fallback so the Tutorial and Journey screens still render
-//  something reasonable when Firestore has no active content yet (e.g. a
-//  fresh Firebase project before FirebaseSeeder / the CLI import has run)
-//  or is briefly unreachable. Per the integration spec, this fallback is
-//  used ONLY for tutorial steps and challenges — never for authentication,
-//  user progress, game answers, or community writes, all of which always
-//  go straight to Firestore.
+//  Bundled fallback so the Tutorial screen still renders something
+//  reasonable when Firestore has no active content yet (e.g. a fresh
+//  Firebase project before FirebaseSeeder / the CLI import has run) or is
+//  briefly unreachable. Per the integration spec, this fallback is used
+//  ONLY for tutorial steps — never for authentication, challenges, user
+//  progress, or community writes, all of which always go straight to
+//  Firestore. Challenges in particular have no local fallback: they're
+//  seeded manually (see the migrate-level-media script and Firestore
+//  console), not via LocalSampleData/FirebaseSeeder.
 //
 
 import Foundation
 
 enum LocalSampleData {
-    /// Public base URL for the Supabase `level-media` bucket. Replace
-    /// `YOUR_PROJECT_REF` with the real project ref before seeding — this
-    /// placeholder intentionally won't resolve.
-    private static let mediaBaseURL = "https://YOUR_PROJECT_REF.supabase.co/storage/v1/object/public/level-media"
-
     static let tutorialSteps: [TutorialStep] = [
         TutorialStep(
             id: "sample-analyse",
@@ -44,52 +41,6 @@ enum LocalSampleData {
             description: "See the explanation after each round to sharpen your eye for next time.",
             mediaURL: nil,
             stepOrder: 3,
-            isActive: true
-        )
-    ]
-
-    static let challenges: [Challenge] = [
-        Challenge(
-            id: "sample-spot-the-difference",
-            title: "Spot the Difference",
-            description: "Warm up by telling real photos apart from AI-generated ones.",
-            difficulty: "beginner",
-            challengeOrder: 1,
-            requiredScore: 70,
-            mediaURL: nil,
-            isActive: true
-        )
-    ]
-
-    static let questions: [GameQuestion] = [
-        GameQuestion(
-            id: "sample-question-1",
-            mediaURL: "\(mediaBaseURL)/flower-001.jpg",
-            imageType: .real,
-            correctAnswer: .real,
-            hint: "Look at the petal edges.",
-            explanation: "Real photo — note the natural imperfections in the petals.",
-            questionOrder: 1,
-            isActive: true
-        ),
-        GameQuestion(
-            id: "sample-question-2",
-            mediaURL: "\(mediaBaseURL)/portrait-002.jpg",
-            imageType: .aiGenerated,
-            correctAnswer: .aiGenerated,
-            hint: "Check the hands and background details.",
-            explanation: "AI-generated — the background pattern repeats unnaturally.",
-            questionOrder: 2,
-            isActive: true
-        ),
-        GameQuestion(
-            id: "sample-question-3",
-            mediaURL: "\(mediaBaseURL)/landscape-003.jpg",
-            imageType: .real,
-            correctAnswer: .real,
-            hint: "Look for consistent shadows.",
-            explanation: "Real photo — the shadows are consistent with a single light source.",
-            questionOrder: 3,
             isActive: true
         )
     ]

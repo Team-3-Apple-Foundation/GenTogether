@@ -2,12 +2,12 @@
 //  StorageService.swift
 //  GenTogether
 //
-//  Level media (game questions, tutorial steps, challenge art) now lives in
-//  Supabase Storage and Firestore stores its full public URL directly — see
-//  GameQuestion/Challenge/TutorialStep.mediaURL — so this Firebase Storage
-//  path-resolution service is no longer on that path. Kept only as
-//  ready-to-use plumbing for a possible future feature needing Firebase
-//  Storage specifically, e.g. user-uploaded profile pictures.
+//  Challenge and tutorial-step media now lives in Supabase Storage, and
+//  Firestore stores its full public URL directly — see
+//  Challenge/ChallengeRound/TutorialStep.mediaURL — so this Firebase
+//  Storage path-resolution service is no longer on that path. Kept only
+//  as ready-to-use plumbing for a possible future feature needing
+//  Firebase Storage specifically, e.g. user-uploaded profile pictures.
 //
 
 import Foundation

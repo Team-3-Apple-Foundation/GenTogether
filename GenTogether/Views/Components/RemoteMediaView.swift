@@ -2,22 +2,23 @@
 //  RemoteMediaView.swift
 //  GenTogether
 //
-//  Renders a `mediaURL` from Firestore (a full public URL into the
+//  Renders a media URL from Firestore (a full public URL into the
 //  Supabase Storage `level-media` bucket) as either an image or an inline
-//  video, picked by the URL's file extension. Unlike the old StorageImage
-//  helper this needs no path-resolution round trip — mediaURL is already
-//  a complete https URL — but it still has to handle a slow network or a
-//  bad/missing URL gracefully, so every state (loading, loaded, failed,
-//  missing) has explicit UI.
+//  video. Which one is the caller's call via `isImage` — the data source
+//  (ChallengeRound.isImage) is authoritative, not a guess from the URL's
+//  file extension, since Supabase/CDN URLs aren't guaranteed to carry one.
+//  Unlike the old StorageImage helper this needs no path-resolution round
+//  trip — the URL is already a complete https URL — but it still has to
+//  handle a slow network or a bad/missing URL gracefully, so every state
+//  (loading, loaded, failed, missing) has explicit UI.
 //
 
 import SwiftUI
 import AVKit
 
 struct RemoteMediaView<Content: View, Placeholder: View, Fallback: View>: View {
-    private static var videoExtensions: Set<String> { ["mp4", "mov", "m4v", "webm"] }
-
     let urlString: String?
+    let isImage: Bool
     @ViewBuilder var content: (Image) -> Content
     @ViewBuilder var placeholder: () -> Placeholder
     @ViewBuilder var fallback: () -> Fallback
@@ -31,9 +32,7 @@ struct RemoteMediaView<Content: View, Placeholder: View, Fallback: View>: View {
 
     var body: some View {
         if let mediaURL {
-            if Self.videoExtensions.contains(mediaURL.pathExtension.lowercased()) {
-                RemoteVideoPlayer(url: mediaURL, placeholder: placeholder, fallback: fallback)
-            } else {
+            if isImage {
                 AsyncImage(url: mediaURL) { phase in
                     switch phase {
                     case .empty:
@@ -46,6 +45,8 @@ struct RemoteMediaView<Content: View, Placeholder: View, Fallback: View>: View {
                         fallback()
                     }
                 }
+            } else {
+                RemoteVideoPlayer(url: mediaURL, placeholder: placeholder, fallback: fallback)
             }
         } else {
             // No URL (nil/blank/unparsable) is a permanent state, not a
