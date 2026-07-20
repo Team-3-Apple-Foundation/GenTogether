@@ -40,7 +40,7 @@ enum SelectedAnswer: String, Codable, Sendable {
 
 /// User-selected reading text size, applied wherever the app already
 /// supports Dynamic-Type-style scaling.
-enum TextSizePreference: String, Codable, Sendable {
+enum TextSizePreference: String, Codable, Sendable, CaseIterable {
     case standard
     case large
     case extraLarge

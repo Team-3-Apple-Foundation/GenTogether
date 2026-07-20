@@ -13,19 +13,48 @@ import FirebaseAuth
 
 @MainActor
 final class OnboardingViewModel: ObservableObject {
+
+    // MARK: - Answers
+
+    @Published var name: String = ""
     @Published var aiFamiliarity: String = ""
     @Published var learningGoal: String = ""
     @Published var interests: Set<String> = []
     @Published var learningMinutes: Int = 10
     @Published var textSize: TextSizePreference = .standard
 
+    // MARK: - Flow state
+
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published private(set) var didComplete = false
 
-    static let familiarityOptions = ["New to AI", "Somewhat familiar", "Very familiar"]
-    static let goalOptions = ["Stay safe online", "Understand AI images", "Just curious"]
-    static let interestOptions = ["Photography", "News", "Art", "Social media", "Family safety"]
+    // MARK: - Options
+
+    static let familiarityOptions = [
+        "Never heard about it",
+        "I've heard about it",
+        "Tried it once or twice",
+        "I often use it"
+    ]
+
+    static let goalOptions = [
+        "Keep my mind sharp",
+        "Keep up with trends",
+        "Just curious",
+        "Be safe online"
+    ]
+
+    static let interestOptions = [
+        "Animals",
+        "Nature",
+        "Arts and Craft",
+        "Food"
+    ]
+
+    static let minuteOptions = [5, 10, 15, 20]
+
+    // MARK: - Dependencies
 
     private let preferenceService: PreferenceService
     private let userIdProvider: @MainActor () -> String?
@@ -38,12 +67,16 @@ final class OnboardingViewModel: ObservableObject {
         self.userIdProvider = userIdProvider ?? { AuthService.shared.currentUser?.uid }
     }
 
+    // MARK: - Load
+
     func loadExistingPreferences() async {
         guard let userId = userIdProvider() else { return }
         isLoading = true
         defer { isLoading = false }
+
         do {
             if let existing = try await preferenceService.fetchOnboardingPreferences(userId: userId) {
+                name = existing.name
                 aiFamiliarity = existing.aiFamiliarity
                 learningGoal = existing.learningGoal
                 interests = Set(existing.interests)
@@ -56,11 +89,14 @@ final class OnboardingViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Save
+
     func completeOnboarding() async {
         guard let userId = userIdProvider() else {
             errorMessage = "You need to be signed in to save your preferences."
             return
         }
+
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
@@ -68,17 +104,20 @@ final class OnboardingViewModel: ObservableObject {
         let preferences = UserPreferences(
             aiFamiliarity: aiFamiliarity,
             learningGoal: learningGoal,
-            interests: Array(interests),
+            interests: Array(interests).sorted(),
             learningMinutes: learningMinutes,
             textSize: textSize,
             onboardingCompleted: true,
-            updatedAt: Date()
+            updatedAt: Date(),
+            name: name.trimmingCharacters(in: .whitespaces)
         )
+
         do {
             try await preferenceService.saveOnboardingPreferences(userId: userId, preferences: preferences)
             didComplete = true
         } catch {
             errorMessage = error.localizedDescription
         }
+        
     }
 }
