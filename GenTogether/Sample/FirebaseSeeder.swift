@@ -3,10 +3,12 @@
 //  GenTogether
 //
 //  DEBUG-ONLY. Writes the same sample content as LocalSampleData into
-//  Firestore so the game/tutorial/community screens have real backend
-//  data to exercise during development, without ever running in a
-//  Release build and without duplicating data on every launch (each
-//  seed method checks for existing documents first).
+//  Firestore so the tutorial/community screens have real backend data to
+//  exercise during development, without ever running in a Release build
+//  and without duplicating data on every launch (each seed method checks
+//  for existing documents first). Challenges are NOT seeded here — they're
+//  populated manually via the migrate-level-media script and the
+//  Firestore console, since isAI content can't be generated.
 //
 //  This is intentionally not wired into app startup automatically — call
 //  `FirebaseSeeder.seedIfNeeded()` explicitly (e.g. from a hidden debug
@@ -21,15 +23,14 @@ import FirebaseFirestore
 enum FirebaseSeeder {
     private static let db = Firestore.firestore()
 
-    /// Seeds tutorial steps, one challenge with three questions, and one
-    /// community question — but only the pieces that don't already exist.
+    /// Seeds tutorial steps and one community question — but only the
+    /// pieces that don't already exist.
     static func seedIfNeeded() async {
         guard FirebaseEnvironment.isConfigured else {
             print("FirebaseSeeder: skipping — Firebase isn't configured (GoogleService-Info.plist missing).")
             return
         }
         await seedTutorialSteps()
-        await seedChallengeAndQuestions()
         await seedCommunityQuestion()
     }
 
@@ -49,32 +50,6 @@ enum FirebaseSeeder {
             print("FirebaseSeeder: seeded \(LocalSampleData.tutorialSteps.count) tutorial steps.")
         } catch {
             print("FirebaseSeeder: failed to seed tutorialSteps — \(error.localizedDescription)")
-        }
-    }
-
-    private static func seedChallengeAndQuestions() async {
-        do {
-            let existing = try await db.collection("challenges").limit(to: 1).getDocuments()
-            guard existing.documents.isEmpty else {
-                print("FirebaseSeeder: challenges already has data, skipping.")
-                return
-            }
-            guard let challenge = LocalSampleData.challenges.first, let challengeId = challenge.id else { return }
-            var challengeToWrite = challenge
-            challengeToWrite.id = nil
-            try db.collection("challenges").document(challengeId).setData(from: challengeToWrite, merge: true)
-
-            for question in LocalSampleData.questions {
-                var question = question
-                let id = question.id ?? UUID().uuidString
-                question.id = nil
-                try db.collection("challenges").document(challengeId)
-                    .collection("questions").document(id)
-                    .setData(from: question, merge: true)
-            }
-            print("FirebaseSeeder: seeded 1 challenge with \(LocalSampleData.questions.count) questions.")
-        } catch {
-            print("FirebaseSeeder: failed to seed challenges — \(error.localizedDescription)")
         }
     }
 

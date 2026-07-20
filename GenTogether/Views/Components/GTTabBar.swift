@@ -1,0 +1,89 @@
+//
+//  GTTabBar.swift
+//  GenTogether
+//
+//  Custom bottom tab bar: the stock TabView chrome doesn't match the
+//  design reference closely enough (icon weight/style switching between
+//  outline and filled per tab, custom spacing), so RootTabView drives
+//  navigation itself and just renders this for the bar.
+//
+
+import SwiftUI
+
+enum GTTab: CaseIterable {
+    case home
+    case journey
+    case community
+    case profile
+
+    var title: String {
+        switch self {
+        case .home: "Home"
+        case .journey: "Journey"
+        case .community: "Community"
+        case .profile: "Profile"
+        }
+    }
+
+    var filledIcon: String {
+        switch self {
+        case .home: "house.fill"
+        case .journey: "star.fill"
+        case .community: "message.fill"
+        case .profile: "person.fill"
+        }
+    }
+
+    var outlineIcon: String {
+        switch self {
+        case .home: "house"
+        case .journey: "star"
+        case .community: "message"
+        case .profile: "person"
+        }
+    }
+}
+
+struct GTTabBar: View {
+    @Binding var selected: GTTab
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(GTTab.allCases, id: \.self) { tab in
+                let isSelected = tab == selected
+
+                Button {
+                    selected = tab
+                } label: {
+                    VStack(spacing: 4) {
+                        Image(systemName: isSelected ? tab.filledIcon : tab.outlineIcon)
+                            .font(.system(size: 22, weight: isSelected ? .semibold : .regular))
+                        Text(tab.title)
+                            .font(.caption2)
+                            .fontWeight(isSelected ? .semibold : .regular)
+                    }
+                    .foregroundStyle(isSelected ? Color.primary : Color.gray)
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+            }
+        }
+        .padding(.top, 10)
+        .padding(.bottom, 8)
+        .background(alignment: .top) {
+            Color.white
+                .ignoresSafeArea(edges: .bottom)
+                .shadow(color: .black.opacity(0.06), radius: 8, x: 0, y: -3)
+        }
+    }
+}
+
+#Preview {
+    @Previewable @State var selected: GTTab = .home
+    VStack {
+        Spacer()
+        GTTabBar(selected: $selected)
+    }
+    .background(GTColor.background)
+}
