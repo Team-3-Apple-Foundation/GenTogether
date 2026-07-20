@@ -12,6 +12,7 @@ import SwiftUI
 struct GameView: View {
     /// Closes this screen and returns to whichever screen pushed it.
     @Environment(\.dismiss) private var dismiss
+    @Environment(GameProgress.self) private var progress
 
     @State private var currentIndex = 0
     @State private var results: [RoundResult] = []
@@ -35,7 +36,16 @@ struct GameView: View {
     private var score: Int {
         results.filter(\.isCorrect).count
     }
-    
+
+    /// How many correct answers this challenge needs to unlock the next one.
+    private var passMark: Int {
+        GameProgress.passMark(outOf: rounds.count)
+    }
+
+    private var passed: Bool {
+        score >= passMark
+    }
+
     var body: some View{
         VStack(spacing: 24){
             if currentIndex < rounds.count{
@@ -63,6 +73,19 @@ struct GameView: View {
             else {
                 Text("You got \(score) out of \(rounds.count)")
                     .font(.title.weight(.bold))
+
+                // Icon + word + colour, and never the word "failed" — a near
+                // miss should read as an invitation, not a verdict.
+                Label(
+                    passed
+                    ? "Challenge complete — the next one is unlocked."
+                    : "You need \(passMark) correct to unlock the next challenge. Have another go?",
+                    systemImage: passed ? "lock.open.fill" : "arrow.clockwise"
+                )
+                .font(.title3)
+                .foregroundStyle(passed ? .green : .orange)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
 
                 Text("Tap any round to see what gave it away.")
                     .font(.subheadline)
@@ -199,6 +222,16 @@ struct GameView: View {
             RoundResult(number: currentIndex + 1, round: currentRound, answer: answer)
         )
         currentIndex += 1
+
+        // The last answer just landed, so the game is over. Report the score
+        // and let GameProgress decide whether it unlocks anything.
+        if currentIndex == rounds.count {
+            progress.recordResult(
+                challengeNumber: challenge.number,
+                score: score,
+                outOf: rounds.count
+            )
+        }
     }
 }
 
@@ -286,4 +319,5 @@ struct RoundResult: Identifiable {
     NavigationStack {
         GameView(challenge: Challenge.samples[0])
     }
+    .environment(GameProgress())
 }

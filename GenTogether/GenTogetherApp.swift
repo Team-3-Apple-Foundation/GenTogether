@@ -9,9 +9,14 @@ import SwiftUI
 
 @main
 struct GenTogetherApp: App {
+    
+    @State private var progress = GameProgress()
+    
     var body: some Scene {
         WindowGroup {
-            AboutMeView()
+            RootTabView()
+                .environment(progress)
         }
     }
 }
+

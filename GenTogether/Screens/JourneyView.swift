@@ -4,6 +4,8 @@ import SwiftUI
 struct JourneyView: View {
     private let challenges = Challenge.samples
     
+    @Environment(GameProgress.self) private var progress
+    
     var body:some View{
         NavigationStack{
             ScrollView{
@@ -16,18 +18,20 @@ struct JourneyView: View {
                         .padding(.bottom, 4)
                     
                     ForEach(challenges) {challenge in
+                        let status = progress.status(forChallengeNumber: challenge.number)
+                        
                         NavigationLink{
                             GameView(challenge: challenge)
                         } label: {
-                            ChallengeRow (challenge: challenge)
+                            ChallengeRow (challenge: challenge, status: status)
                         }
                         .buttonStyle(.plain)
-                        .disabled(challenge.status == .locked)
+                        .disabled(status == .locked)
                         .accessibilityLabel(
-                            "Challenge \(challenge.number),  \(challenge.title). \(challenge.status.label)."
+                            "Challenge \(challenge.number),  \(challenge.title). \(status.label)."
                         )
                         .accessibilityHint(
-                            challenge.status == .locked
+                            status == .locked
                             ? "Finish the previous challenge to unlock this one."
                             : "Opens this challenge."
                         )
@@ -38,6 +42,13 @@ struct JourneyView: View {
             .background(Color(.systemGroupedBackground))
             .navigationTitle("Journey")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar{
+                ToolbarItem(placement: .topBarTrailing){
+                    Button("Reset", systemImage: "arrow.counterclockwise"){
+                        progress.resetAllProgress()
+                    }
+                }
+            }
         }
     }
 }
@@ -78,38 +89,39 @@ struct Challenge: Identifiable {
     let id = UUID()
     let number: Int
     let title: String
-    let status: ChallengeStatus
+//    let status: ChallengeStatus
     
     let rounds: [GameRound]
     
     static let samples: [Challenge] = [
-        Challenge(number: 1, title: "Nature", status: .completed, rounds: GameRound.nature),
-        Challenge(number: 2, title: "Animals", status: .completed, rounds: GameRound.animals),
-        Challenge(number: 3, title: "Art", status: .upNext, rounds: GameRound.art),
-        Challenge(number: 4, title: "Food", status: .locked, rounds: GameRound.food),
-//        Challenge(number: 5, title: "Faces", status: .locked, rounds: GameRound.samples),
-//        Challenge(number: 6, title: "Places", status: .locked, rounds: GameRound.samples),
-//        Challenge(number: 7, title: "Buildings", status: .locked, rounds: GameRound.samples),
-//        Challenge(number: 8, title: "Cars", status: .locked, rounds: GameRound.samples),
-//        Challenge(number: 9, title: "Flowers", status: .locked, rounds: GameRound.samples),
-        Challenge(number: 10, title: "Art", status: .locked, rounds: GameRound.art)
+        Challenge(number: 1, title: "Nature",   rounds: GameRound.nature),
+        Challenge(number: 2, title: "Animals",  rounds: GameRound.animals),
+        Challenge(number: 3, title: "Art",      rounds: GameRound.art),
+        Challenge(number: 4, title: "Food",     rounds: GameRound.food),
+//        Challenge(number: 5, title: "Faces",  rounds: GameRound.samples),
+//        Challenge(number: 6, title: "Places", rounds: GameRound.samples),
+//        Challenge(number: 7, title: "Buildings", rounds: GameRound.samples),
+//        Challenge(number: 8, title: "Cars",   rounds: GameRound.samples),
+//        Challenge(number: 9, title: "Flowers", rounds: GameRound.samples),
+        Challenge(number: 10, title: "Art",     rounds: GameRound.art)
     ]
 }
 
 struct ChallengeRow: View {
     let challenge: Challenge
+    let status: ChallengeStatus
 
     var body: some View {
         HStack(spacing: 16) {
-            Image(systemName: challenge.status.iconName)
+            Image(systemName: status.iconName)
                 .font(.largeTitle)
-                .foregroundStyle(challenge.status.color)
+                .foregroundStyle(status.color)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Challenge \(challenge.number): \(challenge.title)")
                     .font(.title3.weight(.semibold))
 
-                Text(challenge.status.label)
+                Text(status.label)
                     .font(.body)
                     .foregroundStyle(.secondary)
             }
@@ -124,13 +136,14 @@ struct ChallengeRow: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color.green, lineWidth: challenge.status == .upNext ? 3 : 0)
+                .stroke(Color.green, lineWidth: status == .upNext ? 3 : 0)
         )
     }
 }
 
 #Preview {
     JourneyView()
+        .environment(GameProgress())
 
 }
 
