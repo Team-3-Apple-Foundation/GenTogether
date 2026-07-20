@@ -29,4 +29,5 @@ struct RootTabView: View {
 
 #Preview {
     RootTabView()
+        .environmentObject(AuthViewModel())
 }

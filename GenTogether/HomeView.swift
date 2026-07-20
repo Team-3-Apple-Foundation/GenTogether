@@ -3,6 +3,12 @@ import SwiftUI
 
 struct HomeView: View {
     var body: some View {
+        NavigationStack {
+            content
+        }
+    }
+
+    private var content: some View {
         VStack(spacing: 0) {
             header
 
@@ -52,8 +58,9 @@ struct HomeView: View {
     }
 
     private var playButton: some View {
-        Button {
-            // Navigate to the "spot the difference" game.
+        NavigationLink {
+            JourneyView()
+                .navigationBarBackButtonHidden(true)
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass")
@@ -66,6 +73,7 @@ struct HomeView: View {
             .padding(.vertical, 16)
             .background(GTColor.brand)
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            
         }
         .buttonStyle(.plain)
     }
@@ -73,4 +81,5 @@ struct HomeView: View {
 
 #Preview {
     HomeView()
+        .environmentObject(AuthViewModel())
 }
