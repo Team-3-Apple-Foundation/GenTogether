@@ -3,6 +3,8 @@
 //  GenTogether
 //
 //  Firestore path: challenges/{challengeId}
+//  `mediaURL`, when present, is a full public URL into the Supabase
+//  Storage `level-media` bucket — read it directly, no resolution step.
 //
 
 import Foundation
@@ -15,6 +17,6 @@ struct Challenge: Codable, Identifiable, Sendable {
     var difficulty: String
     var challengeOrder: Int
     var requiredScore: Int
-    var imagePath: String?
+    var mediaURL: String?
     var isActive: Bool
 }

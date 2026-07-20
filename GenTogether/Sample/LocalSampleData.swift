@@ -16,12 +16,17 @@
 import Foundation
 
 enum LocalSampleData {
+    /// Public base URL for the Supabase `level-media` bucket. Replace
+    /// `YOUR_PROJECT_REF` with the real project ref before seeding — this
+    /// placeholder intentionally won't resolve.
+    private static let mediaBaseURL = "https://YOUR_PROJECT_REF.supabase.co/storage/v1/object/public/level-media"
+
     static let tutorialSteps: [TutorialStep] = [
         TutorialStep(
             id: "sample-analyse",
             title: "Analyse",
             description: "Look closely at the image. Check the lighting, textures, and small details before deciding.",
-            imagePath: nil,
+            mediaURL: nil,
             stepOrder: 1,
             isActive: true
         ),
@@ -29,7 +34,7 @@ enum LocalSampleData {
             id: "sample-swipe",
             title: "Swipe",
             description: "Swipe or tap to choose whether you think the image is Real or AI-generated.",
-            imagePath: nil,
+            mediaURL: nil,
             stepOrder: 2,
             isActive: true
         ),
@@ -37,7 +42,7 @@ enum LocalSampleData {
             id: "sample-learn",
             title: "Learn",
             description: "See the explanation after each round to sharpen your eye for next time.",
-            imagePath: nil,
+            mediaURL: nil,
             stepOrder: 3,
             isActive: true
         )
@@ -51,7 +56,7 @@ enum LocalSampleData {
             difficulty: "beginner",
             challengeOrder: 1,
             requiredScore: 70,
-            imagePath: nil,
+            mediaURL: nil,
             isActive: true
         )
     ]
@@ -59,7 +64,7 @@ enum LocalSampleData {
     static let questions: [GameQuestion] = [
         GameQuestion(
             id: "sample-question-1",
-            imagePath: "game-images/flower-001.jpg",
+            mediaURL: "\(mediaBaseURL)/flower-001.jpg",
             imageType: .real,
             correctAnswer: .real,
             hint: "Look at the petal edges.",
@@ -69,7 +74,7 @@ enum LocalSampleData {
         ),
         GameQuestion(
             id: "sample-question-2",
-            imagePath: "game-images/portrait-002.jpg",
+            mediaURL: "\(mediaBaseURL)/portrait-002.jpg",
             imageType: .aiGenerated,
             correctAnswer: .aiGenerated,
             hint: "Check the hands and background details.",
@@ -79,7 +84,7 @@ enum LocalSampleData {
         ),
         GameQuestion(
             id: "sample-question-3",
-            imagePath: "game-images/landscape-003.jpg",
+            mediaURL: "\(mediaBaseURL)/landscape-003.jpg",
             imageType: .real,
             correctAnswer: .real,
             hint: "Look for consistent shadows.",

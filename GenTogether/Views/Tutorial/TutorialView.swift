@@ -49,16 +49,22 @@ private struct TutorialStepCard: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            StorageImage(path: step.imagePath) { image in
+            RemoteMediaView(urlString: step.mediaURL) { image in
                 image.resizable().scaledToFit()
             } placeholder: {
                 RoundedRectangle(cornerRadius: 16)
                     .fill(Color.orange.opacity(0.15))
-                    .overlay(
+                    .overlay {
+                        ProgressView()
+                    }
+            } fallback: {
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.orange.opacity(0.15))
+                    .overlay {
                         Image(systemName: "photo")
                             .font(.largeTitle)
                             .foregroundStyle(.orange)
-                    )
+                    }
             }
             .frame(height: 220)
             .clipShape(RoundedRectangle(cornerRadius: 16))

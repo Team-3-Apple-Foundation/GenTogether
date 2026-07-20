@@ -8,29 +8,22 @@
 import SwiftUI
 
 struct RootTabView: View {
+    @State private var selectedTab: GTTab = .home
+
     var body: some View {
-        TabView {
-            HomeView()
-                .tabItem {
-                    Label("Home", systemImage: "house.fill")
+        VStack(spacing: 0) {
+            Group {
+                switch selectedTab {
+                case .home: HomeView()
+                case .journey: JourneyView()
+                case .community: CommunityView()
+                case .profile: ProfileView()
                 }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            JourneyView()
-                .tabItem {
-                    Label("Journey", systemImage: "star")
-                }
-
-            CommunityView()
-                .tabItem {
-                    Label("Community", systemImage: "person.2")
-                }
-
-            ProfileView()
-                .tabItem {
-                    Label("Profile", systemImage: "person.crop.circle")
-                }
+            GTTabBar(selected: $selectedTab)
         }
-        .tint(.orange) // selected tab tint, matches the app's accent color
     }
 }
 
