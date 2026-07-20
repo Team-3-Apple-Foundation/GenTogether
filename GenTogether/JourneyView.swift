@@ -21,7 +21,7 @@ struct JourneyView: View {
                 } else if viewModel.isEmpty {
                     ContentUnavailableView("No challenges yet", systemImage: "star")
                 } else {
-                    List(viewModel.challenges) { challenge in
+                    List(viewModel.challenges, id: \.journeyListId) { challenge in
                         let status = viewModel.status(for: challenge)
                         if status == .locked {
                             ChallengeRow(challenge: challenge, status: status, progress: viewModel.progress(for: challenge))
@@ -49,6 +49,12 @@ struct JourneyView: View {
                 }
             }
         }
+    }
+}
+
+private extension Challenge {
+    var journeyListId: String {
+        id ?? "\(challengeOrder)-\(title)"
     }
 }
 

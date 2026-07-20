@@ -2,144 +2,212 @@
 //  GameView.swift
 //  GenTogether
 //
-//  One play-through of a challenge: loads questions from
-//  challenges/{challengeId}/questions, shows each image via Firebase
-//  Storage, records every answer, then shows an inline results summary
-//  once the session completes.
+//  Created by Ameya More on 18/7/2026.
 //
 
 import SwiftUI
 
+
+
 struct GameView: View {
-    @StateObject private var viewModel: GameViewModel
-    @EnvironmentObject private var authViewModel: AuthViewModel
+    @State private var currentIndex = 0
+    @State private var results: [RoundResult] = []
 
-    init(challenge: Challenge) {
-        _viewModel = StateObject(wrappedValue: GameViewModel(challenge: challenge))
+    /// Which result row is open. `nil` means none are open.
+    @State private var expandedResultID: UUID?
+
+    private let rounds = GameRound.samples
+    private let challenge: Challenge?
+
+    init(challenge: Challenge? = nil) {
+        self.challenge = challenge
     }
 
-    var body: some View {
-        Group {
-            if viewModel.isComplete {
-                GameResultsSummaryView(viewModel: viewModel)
-            } else if viewModel.isLoading && viewModel.questions.isEmpty {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if let question = viewModel.currentQuestion {
-                questionView(question)
-            } else if let errorMessage = viewModel.errorMessage {
-                ContentUnavailableView(errorMessage, systemImage: "exclamationmark.triangle")
-            }
-        }
-        .navigationTitle(viewModel.challenge.title)
-        .navigationBarTitleDisplayMode(.inline)
-        .task { await viewModel.start(userId: authViewModel.currentUserId) }
+    private var currentRound: GameRound {
+        rounds[currentIndex]
     }
 
-    private func questionView(_ question: GameQuestion) -> some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                ProgressView(value: viewModel.progressFraction)
-                    .tint(.orange)
-                    .padding(.horizontal)
-
-                Text("Question \(viewModel.currentIndex + 1) of \(viewModel.questions.count)")
-                    .font(.caption)
+    private var score: Int {
+        results.filter(\.isCorrect).count
+    }
+    
+    var body: some View{
+        VStack(spacing: 24){
+            if currentIndex < rounds.count{
+                Text("Round \(currentIndex + 1) of \(rounds.count)")
+                    .font(.headline)
                     .foregroundStyle(.secondary)
 
-                StorageImage(path: question.imagePath) { image in
-                    image.resizable().scaledToFit()
-                } placeholder: {
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color(.secondarySystemGroupedBackground))
-                        .overlay(ProgressView())
-                }
-                .frame(maxHeight: 320)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .padding(.horizontal)
-
-                if let hint = question.hint, !hint.isEmpty {
-                    Text(hint)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal)
-                }
-
-                if let errorMessage = viewModel.errorMessage {
-                    Text(errorMessage)
-                        .font(.footnote)
-                        .foregroundStyle(.red)
-                        .padding(.horizontal)
-                }
-
-                HStack(spacing: 16) {
-                    Button {
-                        Task { await viewModel.submitAnswer(.real, userId: authViewModel.currentUserId) }
-                    } label: {
-                        Text("Real").frame(maxWidth: .infinity)
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(Color(.secondarySystemGroupedBackground))
+                    .frame(height: 320)
+                    .overlay{
+                        Image(systemName: "photo")
+                            .font(.system(size: 64))
+                            .foregroundStyle(Color(.systemGray3))
                     }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(viewModel.isLoading)
 
-                    Button {
-                        Task { await viewModel.submitAnswer(.aiGenerated, userId: authViewModel.currentUserId) }
-                    } label: {
-                        Text("AI-Generated").frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.orange)
-                    .disabled(viewModel.isLoading)
-                }
-                .padding(.horizontal)
-            }
-            .padding(.top)
-            .padding(.bottom, 32)
-        }
-    }
-}
-
-private struct GameResultsSummaryView: View {
-    @ObservedObject var viewModel: GameViewModel
-
-    var body: some View {
-        VStack(spacing: 20) {
-            Image(systemName: passed ? "checkmark.seal.fill" : "arrow.clockwise.circle.fill")
-                .font(.system(size: 64))
-                .foregroundStyle(.orange)
-
-            Text(passed ? "Challenge Complete!" : "Keep Practicing")
-                .font(.title.bold())
-
-            if let session = viewModel.session {
-                Text("Score: \(session.score)%")
+                Text("Is this a real photo, or made by AI?")
                     .font(.title2)
-                Text("\(session.correctAnswers) of \(session.totalQuestions) correct")
-                    .foregroundStyle(.secondary)
-            }
+                    .multilineTextAlignment(.center)
 
-            if let progress = viewModel.finalProgress {
-                HStack(spacing: 4) {
-                    ForEach(0..<3, id: \.self) { index in
-                        Image(systemName: index < progress.stars ? "star.fill" : "star")
-                            .foregroundStyle(.orange)
+                HStack(spacing:12){
+                    answerButton(for: .real)
+                    answerButton(for: .ai)
+                }
+            }
+            else {
+                Text("You got \(score) out of \(rounds.count)")
+                    .font(.title.weight(.bold))
+
+                Text("Tap any round to see what gave it away.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                ScrollView {
+                    VStack(spacing: 8) {
+                        ForEach(results) { result in
+                            resultRow(for: result)
+                            Divider()
+                        }
                     }
                 }
             }
-
-            Spacer()
         }
-        .padding(.top, 48)
-        .padding(.horizontal, 32)
+        .padding(20)
+    }
+    private func resultRow(for result: RoundResult) -> some View {
+        let isExpanded = (expandedResultID == result.id)
+
+        return VStack(alignment: .leading, spacing: 12) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    expandedResultID = isExpanded ? nil : result.id
+                }
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: result.isCorrect ? "checkmark.circle.fill" : "xmark.circle")
+                        .foregroundStyle(result.isCorrect ? .green : .orange)
+
+                    Text("Round \(result.number)")
+                        .foregroundStyle(.primary)
+
+                    Text(result.isCorrect ? "Correct" : "Not quite")
+                        .foregroundStyle(.secondary)
+
+                    Spacer()
+
+                    Image(systemName: "chevron.down")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                }
+                .font(.title3)
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint(isExpanded ? "Hides the explanation" : "Shows the explanation")
+
+            if isExpanded {
+                HStack(alignment: .top, spacing: 10) {
+                    Text("🦉")
+                        .accessibilityHidden(true)
+
+                    Text(result.round.clue)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.bottom, 4)
+            }
+        }
     }
 
-    private var passed: Bool {
-        (viewModel.session?.score ?? 0) >= viewModel.challenge.requiredScore
+    private func answerButton(for answer: Answer) -> some View {
+        Button{
+            submit(answer)
+        } label: {
+            VStack(spacing: 6){
+                Image(systemName: answer.iconName)
+                    .font(.title2)
+                Text(answer.label)
+                    .font(.title3.weight(.semibold))
+            }
+            .frame(maxWidth: .infinity, minHeight: 72)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(answer.color)
+    }
+    
+    private func submit(_ answer: Answer) {
+        results.append(
+            RoundResult(number: currentIndex + 1, round: currentRound, answer: answer)
+        )
+        currentIndex += 1
     }
 }
+
+
+enum Answer {
+    case real
+    case ai
+
+    var label: String{
+        switch self{
+        case .real: "Real photo"
+        case .ai: "Made by AI"
+        }
+    }
+
+    var iconName: String{
+        switch self{
+        case .real: "camera.fill"
+        case .ai: "sparkles"
+        }
+    }
+
+    var color: Color{
+        switch self{
+        case .real: .blue
+        case .ai: .orange
+        }
+    }
+}
+
+
+struct GameRound{
+    let imageName: String
+    let isAI: Bool
+    let clue: String
+
+    static let samples: [GameRound] = [
+        GameRound(imageName: "round1", isAI: true,
+                  clue: "Look at the trees at the back. The leaves blur into mush. Real cameras keep that detail."),
+        GameRound(imageName: "round2", isAI: false,
+                  clue: "Every shadow falls the same way, which is a good sign of a real photograph."),
+        GameRound(imageName: "round3", isAI: true,
+                  clue: "Count the fingers. AI struggles with hands more than almost anything else."),
+        GameRound(imageName: "round4", isAI: false,
+                  clue: "The writing on the sign is sharp and readable. AI usually garbles small text."),
+        GameRound(imageName: "round5", isAI: true,
+                  clue: "The pattern repeats too perfectly — real fabric folds and breaks up patterns.")
+    ]
+}
+
+
+struct RoundResult: Identifiable {
+    let id = UUID()
+    let number: Int
+    let round: GameRound
+    let answer: Answer
+
+    var isCorrect: Bool {
+        (answer == .ai) == round.isAI
+    }
+}
+
+
 
 #Preview {
-    NavigationStack {
-        GameView(challenge: LocalSampleData.challenges[0])
-            .environmentObject(AuthViewModel())
-    }
+    GameView()
 }
