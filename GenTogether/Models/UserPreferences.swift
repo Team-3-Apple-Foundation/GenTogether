@@ -13,6 +13,7 @@ import FirebaseFirestore
 
 struct UserPreferences: Codable, Identifiable, Sendable {
     @DocumentID var id: String?
+    
     var aiFamiliarity: String
     var learningGoal: String
     var interests: [String]
@@ -20,6 +21,7 @@ struct UserPreferences: Codable, Identifiable, Sendable {
     var textSize: TextSizePreference
     var onboardingCompleted: Bool
     var updatedAt: Date
+    var name: String
 
     static func empty() -> UserPreferences {
         UserPreferences(
@@ -29,7 +31,9 @@ struct UserPreferences: Codable, Identifiable, Sendable {
             learningMinutes: 10,
             textSize: .standard,
             onboardingCompleted: false,
-            updatedAt: Date()
+            updatedAt: Date(),
+            name: ""
         )
+        
     }
 }
