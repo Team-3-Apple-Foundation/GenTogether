@@ -22,8 +22,13 @@ struct GameView: View {
 
     @State private var showLeaveConfirmation = false
 
-//    private let rounds = GameRound.samples
-    let challenge: Challenge
+    /// Held as @State so "Next challenge" can swap it without pushing a new
+    /// screen — the navigation stack stays two deep and back always means Journey.
+    @State private var challenge: Challenge
+
+    init(challenge: Challenge) {
+        _challenge = State(initialValue: challenge)
+    }
 
     private var rounds: [GameRound] {
         challenge.rounds
@@ -44,6 +49,11 @@ struct GameView: View {
 
     private var passed: Bool {
         score >= passMark
+    }
+
+    /// The challenge after this one, or nil if this is the last.
+    private var nextChallenge: Challenge? {
+        Challenge.samples.first { $0.number == challenge.number + 1 }
     }
 
     var body: some View{
@@ -100,14 +110,31 @@ struct GameView: View {
                     }
                 }
 
-                Button {
-                    playAgain()
-                } label: {
-                    Label("Play again", systemImage: "arrow.clockwise")
-                        .font(.title3.weight(.semibold))
-                        .frame(maxWidth: .infinity, minHeight: 56)
+                // Only offered when there is a next challenge to go to.
+                if let nextChallenge {
+                    Button {
+                        startGame(nextChallenge)
+                    } label: {
+                        Label("Next challenge", systemImage: "arrow.right.circle.fill")
+                            .font(.title3.weight(.semibold))
+                            .frame(maxWidth: .infinity, minHeight: 56)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!passed)
+                    .accessibilityHint(
+                        passed
+                        ? "Starts \(nextChallenge.title)."
+                        : "Locked. Score \(passMark) or more to unlock it."
+                    )
                 }
-                .buttonStyle(.borderedProminent)
+
+                // Whichever action makes sense is the prominent one, so the
+                // screen always points at a single obvious next step.
+                if passed {
+                    playAgainButton.buttonStyle(.bordered)
+                } else {
+                    playAgainButton.buttonStyle(.borderedProminent)
+                }
             }
         }
         .padding(20)
@@ -199,8 +226,22 @@ struct GameView: View {
         .tint(answer.color)
     }
     
+    /// The same button either way — only the style differs, so it lives here
+    /// once rather than being written out twice in the body.
+    private var playAgainButton: some View {
+        Button {
+            startGame(challenge)
+        } label: {
+            Label("Play again", systemImage: "arrow.clockwise")
+                .font(.title3.weight(.semibold))
+                .frame(maxWidth: .infinity, minHeight: 56)
+        }
+    }
+
     /// Clears every trace of the last game so a new one starts fresh.
-    private func playAgain() {
+    /// One reset function, so new state can only be forgotten in one place.
+    private func startGame(_ newChallenge: Challenge) {
+        challenge = newChallenge
         currentIndex = 0
         results = []
         expandedResultID = nil
