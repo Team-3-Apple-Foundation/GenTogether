@@ -9,6 +9,18 @@
 
 import SwiftUI
 
+/// The app's shared white/rounded/drop-shadowed card background — the same
+/// look InfoCard uses on Home, factored out so other cards (e.g. the
+/// Hobbies toggle list) can match it without re-declaring the styling.
+extension View {
+    func gtCardBackground(cornerRadius: CGFloat = 18) -> some View {
+        self
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .shadow(color: .black.opacity(0.06), radius: 8, x: 0, y: 4)
+    }
+}
+
 struct InfoCard: View {
     let iconName: String
     let iconColor: Color
@@ -53,9 +65,7 @@ struct InfoCard: View {
             Spacer(minLength: 0)
         }
         .padding(16)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .shadow(color: .black.opacity(0.06), radius: 8, x: 0, y: 4)
+        .gtCardBackground()
     }
 }
 

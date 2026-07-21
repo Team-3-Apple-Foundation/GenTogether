@@ -21,7 +21,6 @@ final class OnboardingViewModel: ObservableObject {
     @Published var learningGoal: String = ""
     @Published var interests: Set<String> = []
     @Published var learningMinutes: Int = 10
-    @Published var textSize: TextSizePreference = .standard
 
     // MARK: - Flow state
 
@@ -82,7 +81,6 @@ final class OnboardingViewModel: ObservableObject {
                 learningGoal = existing.learningGoal
                 interests = Set(existing.interests)
                 learningMinutes = existing.learningMinutes
-                textSize = existing.textSize
                 didComplete = existing.onboardingCompleted
             }
         } catch {
@@ -106,11 +104,16 @@ final class OnboardingViewModel: ObservableObject {
             learningGoal: learningGoal,
             interests: Array(interests).sorted(),
             learningMinutes: learningMinutes,
-            textSize: textSize,
             onboardingCompleted: true,
             updatedAt: Date(),
             name: name.trimmingCharacters(in: .whitespaces)
         )
+
+        #if DEBUG
+        print("[DIAG][Onboarding] saving for uid: \(userId)")
+        print("[DIAG][Onboarding] path: users/\(userId)/preferences/onboarding, field: interests")
+        print("[DIAG][Onboarding] interests value being saved: \(preferences.interests)")
+        #endif
 
         do {
             try await preferenceService.saveOnboardingPreferences(userId: userId, preferences: preferences)
@@ -118,6 +121,6 @@ final class OnboardingViewModel: ObservableObject {
         } catch {
             errorMessage = error.localizedDescription
         }
-        
+
     }
 }

@@ -18,7 +18,6 @@ struct UserPreferences: Codable, Identifiable, Sendable {
     var learningGoal: String
     var interests: [String]
     var learningMinutes: Int
-    var textSize: TextSizePreference
     var onboardingCompleted: Bool
     var updatedAt: Date
     var name: String
@@ -29,11 +28,9 @@ struct UserPreferences: Codable, Identifiable, Sendable {
             learningGoal: "",
             interests: [],
             learningMinutes: 10,
-            textSize: .standard,
             onboardingCompleted: false,
             updatedAt: Date(),
             name: ""
         )
-        
     }
 }

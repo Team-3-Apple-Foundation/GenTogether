@@ -26,28 +26,25 @@ struct ProfileView: View {
                     .padding(.vertical, 4)
                 }
 
+                Section {
+                    NavigationLink {
+                        HobbiesPreferenceView()
+                    } label: {
+                        HStack {
+                            Text("Hobbies")
+                            Spacer()
+                            Text("Change")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
                 if authViewModel.isAnonymous {
                     Section {
                         Button("Create a Permanent Account") { showUpgradeSheet = true }
                     } footer: {
                         Text("Upgrading keeps your existing progress — you'll just add an email and password.")
                     }
-                }
-
-                Section("Reading Text Size") {
-                    Picker("Text size", selection: $preferencesViewModel.textSize) {
-                        Text("Standard").tag(TextSizePreference.standard)
-                        Text("Large").tag(TextSizePreference.large)
-                        Text("Extra Large").tag(TextSizePreference.extraLarge)
-                    }
-                    .pickerStyle(.segmented)
-                    .onChange(of: preferencesViewModel.textSize) { _, _ in
-                        Task { await preferencesViewModel.completeOnboarding() }
-                    }
-                }
-
-                if let errorMessage = preferencesViewModel.errorMessage {
-                    Text(errorMessage).foregroundStyle(.red)
                 }
 
                 Section {
