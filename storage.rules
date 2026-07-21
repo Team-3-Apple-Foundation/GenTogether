@@ -1,0 +1,38 @@
+rules_version = '2';
+
+// GenTogether Firebase Storage security rules.
+//
+// The app currently ships only curated, official images (game questions,
+// tutorial steps, challenge art) under fixed folders. There is no
+// user-upload feature in the UI today, so client writes are denied
+// everywhere — official images are uploaded by the team via the Firebase
+// Console or Admin SDK, not through the app.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    match /game-images/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /tutorial-images/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /challenge-images/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // Deny everything else, including any path not explicitly listed above.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
