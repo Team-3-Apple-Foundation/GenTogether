@@ -72,6 +72,7 @@ final class OnboardingViewModel: ObservableObject {
     func loadExistingPreferences() async {
         guard let userId = userIdProvider() else { return }
         isLoading = true
+        didComplete = false          // ← reset first, so a nil fetch means "not done"
         defer { isLoading = false }
 
         do {
@@ -88,7 +89,6 @@ final class OnboardingViewModel: ObservableObject {
             errorMessage = error.localizedDescription
         }
     }
-
     // MARK: - Save
 
     func completeOnboarding() async {

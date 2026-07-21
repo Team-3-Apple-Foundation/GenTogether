@@ -6,7 +6,7 @@
 import SwiftUI
 
 enum OnboardingStep: Int, CaseIterable {
-    case name, familiarity, goal, interests, dailyTime, fontSize
+    case name, familiarity, goal, interests, dailyTime
 
     var question: String {
         switch self {
@@ -15,7 +15,6 @@ enum OnboardingStep: Int, CaseIterable {
         case .goal:        return "What brings you here today?"
         case .interests:   return "What are you interested in?"
         case .dailyTime:   return "How much time would you like to learn each day?"
-        case .fontSize:    return "What size is comfortable for you to read the text?"
         }
     }
 
@@ -28,17 +27,13 @@ struct OnboardingView: View {
 
     @State private var step: OnboardingStep = .name
 
-    private let fontOptions: [TextSizePreference] = [.standard, .large]
-
     var body: some View {
         VStack(spacing: 0) {
             header
             progressBar
-            
 
             ScrollView {
                 VStack(spacing: 28) {
-                    
                     Text(step.question)
                         .font(.system(size: 22, weight: .medium))
                         .multilineTextAlignment(.center)
@@ -164,13 +159,6 @@ struct OnboardingView: View {
                 }
             }
             .padding(.horizontal, 40)
-
-        case .fontSize:
-            VStack(spacing: 20) {
-                ForEach(fontOptions, id: \.self) { size in
-                    fontCard(size)
-                }
-            }
         }
     }
 
@@ -201,41 +189,6 @@ struct OnboardingView: View {
                     RoundedRectangle(cornerRadius: 10)
                         .stroke(selected ? .black.opacity(0.4) : .clear, lineWidth: 2)
                 )
-        }
-        .accessibilityAddTraits(selected ? .isSelected : [])
-    }
-
-    private func fontCard(_ size: TextSizePreference) -> some View {
-        let selected = onboardingViewModel.textSize == size
-        let scale = fontScale(for: size)
-
-        return Button {
-            onboardingViewModel.textSize = size
-        } label: {
-            VStack(spacing: 4) {
-                Text("Aa")
-                    .font(.system(size: 20 * scale, weight: .medium))
-                Text(label(for: size))
-                    .font(.system(size: 12 * scale))
-            }
-            .foregroundStyle(.black)
-            .frame(width: 72 * scale, height: 60 * scale)
-            .background(selected ? Palette.selectedBlue : .white)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(selected ? Palette.blue : .black.opacity(0.12),
-                            lineWidth: selected ? 2 : 1)
-            )
-            .overlay(alignment: .topTrailing) {
-                if selected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 16))
-                        .foregroundStyle(Palette.blue)
-                        .background(Circle().fill(.white))
-                        .offset(x: 5, y: -5)
-                }
-            }
         }
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
@@ -287,7 +240,7 @@ struct OnboardingView: View {
             return !onboardingViewModel.learningGoal.isEmpty
         case .interests:
             return !onboardingViewModel.interests.isEmpty
-        case .dailyTime, .fontSize:
+        case .dailyTime:
             return true
         }
     }
@@ -312,22 +265,6 @@ struct OnboardingView: View {
     private func goBack() {
         if let prev = OnboardingStep(rawValue: step.rawValue - 1) {
             step = prev
-        }
-    }
-
-    private func fontScale(for size: TextSizePreference) -> CGFloat {
-        switch size {
-        case .standard:   return 1.0
-        case .large:      return 1.4
-        case .extraLarge: return 1.7
-        }
-    }
-
-    private func label(for size: TextSizePreference) -> String {
-        switch size {
-        case .standard:   return "Normal"
-        case .large:      return "Larger"
-        case .extraLarge: return "Largest"
         }
     }
 
