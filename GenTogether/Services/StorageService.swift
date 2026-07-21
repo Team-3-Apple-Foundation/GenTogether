@@ -2,9 +2,12 @@
 //  StorageService.swift
 //  GenTogether
 //
-//  Firestore documents store only stable Storage *paths*
-//  (e.g. "game-images/flower-001.jpg"), never downloadable URLs — those
-//  expire/rotate. This service resolves a path to a URL on demand.
+//  Challenge and tutorial-step media now lives in Supabase Storage, and
+//  Firestore stores its full public URL directly — see
+//  Challenge/ChallengeRound/TutorialStep.mediaURL — so this Firebase
+//  Storage path-resolution service is no longer on that path. Kept only
+//  as ready-to-use plumbing for a possible future feature needing
+//  Firebase Storage specifically, e.g. user-uploaded profile pictures.
 //
 
 import Foundation
@@ -20,7 +23,7 @@ final class StorageService {
     private init() {}
 
     /// Resolves a Firebase Storage path to a downloadable URL, suitable for
-    /// AsyncImage or the StorageImage helper view.
+    /// AsyncImage.
     func downloadURL(forStoragePath path: String) async throws -> URL {
         guard !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw StorageServiceError.invalidPath

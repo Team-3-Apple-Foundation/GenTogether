@@ -2,10 +2,7 @@
 //  ChallengeService.swift
 //  GenTogether
 //
-//  Firestore paths:
-//    challenges/{challengeId}
-//    challenges/{challengeId}/questions/{questionId}
-//    users/{userId}/challengeProgress/{challengeId}
+//  Firestore path: challenges/{challengeId}
 //
 
 import Foundation
@@ -15,136 +12,89 @@ final class ChallengeService {
     static let shared = ChallengeService()
 
     // Computed, not stored: Firestore.firestore() crashes if FirebaseApp
-    // hasn't been configured, so this must only be touched after each
-    // method's requireConfigured() guard below has already run.
+    // hasn't been configured, so this must only be touched after
+    // requireConfigured() below has already run.
     private var db: Firestore { Firestore.firestore() }
     private init() {}
 
-    func fetchActiveChallenges() async throws -> [Challenge] {
+    /// All challenges, sorted by category for a stable list order (there's
+    /// no ordering field in Firestore to sort by server-side). Document IDs
+    /// are Firestore auto-generated — the caller must read `.id` off each
+    /// result rather than assuming any fixed id.
+    func fetchChallenges() async throws -> [Challenge] {
         try FirebaseEnvironment.requireConfigured()
         do {
-            let snapshot = try await db.collection("challenges")
-                .whereField("isActive", isEqualTo: true)
-                .order(by: "challengeOrder")
-                .getDocuments()
-            return try snapshot.documents.map { try $0.data(as: Challenge.self) }
+            let snapshot = try await db.collection("challenges").getDocuments()
+            let challenges = try snapshot.documents.map { try $0.data(as: Challenge.self) }
+            return challenges.sorted { $0.category.rawValue < $1.category.rawValue }
         } catch {
-            throw ChallengeServiceError.readFailed(error)
+            print("ChallengeService: failed to list challenges — \(error)")
+            throw ChallengeServiceError.readFailed(id: nil, underlying: error)
         }
     }
 
-    func fetchQuestions(challengeId: String) async throws -> [GameQuestion] {
+    func fetchChallenge(id: String) async throws -> Challenge {
         try FirebaseEnvironment.requireConfigured()
         do {
-            let snapshot = try await db.collection("challenges").document(challengeId)
-                .collection("questions")
-                .whereField("isActive", isEqualTo: true)
-                .order(by: "questionOrder")
-                .getDocuments()
-            return try snapshot.documents.map { try $0.data(as: GameQuestion.self) }
-        } catch {
-            throw ChallengeServiceError.readFailed(error)
-        }
-    }
-
-    func fetchCurrentUserProgress(userId: String) async throws -> [ChallengeProgress] {
-        try FirebaseEnvironment.requireConfigured()
-        do {
-            let snapshot = try await db.collection("users").document(userId)
-                .collection("challengeProgress")
-                .getDocuments()
-            return try snapshot.documents.map { try $0.data(as: ChallengeProgress.self) }
-        } catch {
-            throw ChallengeServiceError.readFailed(error)
-        }
-    }
-
-    /// Merges a new attempt into the user's progress for one challenge:
-    /// bumps attemptCount, keeps the best score/star rating seen so far,
-    /// and only ever moves status forward (never un-completes a challenge).
-    func updateChallengeProgress(
-        userId: String,
-        challengeId: String,
-        newStatus: ChallengeStatus,
-        score: Int,
-        stars: Int
-    ) async throws {
-        try FirebaseEnvironment.requireConfigured()
-        let ref = db.collection("users").document(userId).collection("challengeProgress").document(challengeId)
-        do {
-            let snapshot = try await ref.getDocument()
-            let now = Date()
-            if snapshot.exists, let existing = try? snapshot.data(as: ChallengeProgress.self) {
-                var updated = existing
-                updated.attemptCount += 1
-                updated.bestScore = max(updated.bestScore, score)
-                updated.stars = max(updated.stars, stars)
-                updated.status = updated.status == .completed ? .completed : newStatus
-                if updated.status == .completed && updated.completedAt == nil {
-                    updated.completedAt = now
-                }
-                updated.updatedAt = now
-                try ref.setData(from: updated, merge: true)
-            } else {
-                let progress = ChallengeProgress(
-                    status: newStatus,
-                    bestScore: score,
-                    attemptCount: 1,
-                    stars: stars,
-                    unlockedAt: now,
-                    completedAt: newStatus == .completed ? now : nil,
-                    updatedAt: now
-                )
-                try ref.setData(from: progress, merge: true)
+            let snapshot = try await db.collection("challenges").document(id).getDocument()
+            guard snapshot.exists else {
+                print("ChallengeService: no document at challenges/\(id).")
+                throw ChallengeServiceError.notFound(id: id)
             }
+            do {
+                return try snapshot.data(as: Challenge.self)
+            } catch {
+                // Most likely cause during manual data entry: a field is
+                // missing or has the wrong type (e.g. category isn't one of
+                // the ChallengeCategory raw values). This does NOT crash
+                // the app — it's a normal thrown error, caught right here.
+                print("ChallengeService: challenges/\(id) exists but failed to decode — \(error)")
+                throw ChallengeServiceError.decodeFailed(id: id, underlying: error)
+            }
+        } catch let error as ChallengeServiceError {
+            throw error
         } catch {
-            throw ChallengeServiceError.writeFailed(error)
+            if Self.isPermissionDenied(error) {
+                print("""
+                ChallengeService: permission denied reading challenges/\(id) (Firestore \
+                code 7 — PERMISSION_DENIED). This is a Security Rules problem, not app \
+                code: check firestore.rules has a \
+                `match /challenges/{challengeId} { allow read: if true; }` block, and \
+                that it's actually been deployed with \
+                `firebase deploy --only firestore:rules` (editing the local file alone \
+                doesn't affect the live project).
+                """)
+                throw ChallengeServiceError.permissionDenied(id: id, underlying: error)
+            }
+            print("ChallengeService: failed to fetch challenges/\(id) — \(error)")
+            throw ChallengeServiceError.readFailed(id: id, underlying: error)
         }
     }
 
-    /// Unlocks the next challenge (by `challengeOrder`) after
-    /// `completedChallenge`, if it isn't already unlocked/in-progress.
-    func unlockNextChallengeIfEligible(
-        userId: String,
-        completedChallenge: Challenge,
-        allChallenges: [Challenge]
-    ) async throws {
-        guard let nextChallenge = allChallenges
-            .filter({ $0.challengeOrder > completedChallenge.challengeOrder })
-            .min(by: { $0.challengeOrder < $1.challengeOrder }),
-            let nextId = nextChallenge.id else { return }
-
-        try FirebaseEnvironment.requireConfigured()
-        let ref = db.collection("users").document(userId).collection("challengeProgress").document(nextId)
-        do {
-            let snapshot = try await ref.getDocument()
-            guard !snapshot.exists else { return }
-            let progress = ChallengeProgress(
-                status: .unlocked,
-                bestScore: 0,
-                attemptCount: 0,
-                stars: 0,
-                unlockedAt: Date(),
-                completedAt: nil,
-                updatedAt: Date()
-            )
-            try ref.setData(from: progress, merge: true)
-        } catch {
-            throw ChallengeServiceError.writeFailed(error)
-        }
+    private static func isPermissionDenied(_ error: Error) -> Bool {
+        (error as NSError).code == FirestoreErrorCode.permissionDenied.rawValue
     }
 }
 
 enum ChallengeServiceError: LocalizedError {
-    case readFailed(Error)
-    case writeFailed(Error)
+    case notFound(id: String)
+    case decodeFailed(id: String, underlying: Error)
+    case permissionDenied(id: String, underlying: Error)
+    case readFailed(id: String?, underlying: Error)
 
     var errorDescription: String? {
         switch self {
-        case .readFailed(let error):
-            return "Couldn't load challenges: \(error.localizedDescription)"
-        case .writeFailed(let error):
-            return "Couldn't save your progress: \(error.localizedDescription)"
+        case .notFound(let id):
+            return "No challenge found with id \"\(id)\"."
+        case .decodeFailed(let id, let underlying):
+            return "Challenge \"\(id)\" has bad data: \(underlying.localizedDescription)"
+        case .permissionDenied(let id, _):
+            return "No permission to read challenge \"\(id)\" — check Firestore Security Rules for /challenges."
+        case .readFailed(let id, let underlying):
+            if let id {
+                return "Couldn't load challenge \"\(id)\": \(underlying.localizedDescription)"
+            }
+            return "Couldn't load challenges: \(underlying.localizedDescription)"
         }
     }
 }

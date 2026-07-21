@@ -2,97 +2,186 @@
 //  GameView.swift
 //  GenTogether
 //
-//  Created by Ameya More on 18/7/2026.
+//  Reached from JourneyView tapping a challenge. Fetches
+//  challenges/{challengeId} via ChallengeService using the real id passed
+//  in from navigation (never a hardcoded id), then shows one
+//  ChallengeRound at a time. Media comes from ChallengeRound.mediaUrl — a
+//  Supabase Storage public URL — rendered with RemoteMediaView, choosing
+//  AsyncImage vs. AVKit's VideoPlayer based on ChallengeRound.isImage (the
+//  authoritative field from Firestore, not a guess from the URL). Judging
+//  is local-only right now; no scoring or progress is written back — the
+//  challenges/questions-era progress system doesn't apply to this schema.
 //
 
 import SwiftUI
 
-
-
 struct GameView: View {
+    let challengeId: String
+
+    @State private var challenge: Challenge?
+    @State private var isLoading = true
+    @State private var errorMessage: String?
     @State private var currentIndex = 0
-    @State private var results: [RoundResult] = []
+    @State private var results: [Bool] = [] // true = judged correctly, in round order
 
     /// Which result row is open. `nil` means none are open.
-    @State private var expandedResultID: UUID?
+    @State private var expandedResultIndex: Int?
 
-    private let rounds = GameRound.samples
-    private let challenge: Challenge?
+    /// Bumped to force RemoteMediaView to re-attempt a load after Retry.
+    @State private var mediaReloadToken = UUID()
 
-    init(challenge: Challenge? = nil) {
-        self.challenge = challenge
+    init(challengeId: String) {
+        self.challengeId = challengeId
     }
 
-    private var currentRound: GameRound {
-        rounds[currentIndex]
+    private var rounds: [ChallengeRound] {
+        challenge?.rounds ?? []
     }
 
-    private var score: Int {
-        results.filter(\.isCorrect).count
-    }
-    
-    var body: some View{
-        VStack(spacing: 24){
-            if currentIndex < rounds.count{
-                Text("Round \(currentIndex + 1) of \(rounds.count)")
-                    .font(.headline)
-                    .foregroundStyle(.secondary)
-
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(Color(.secondarySystemGroupedBackground))
-                    .frame(height: 320)
-                    .overlay{
-                        Image(systemName: "photo")
-                            .font(.system(size: 64))
-                            .foregroundStyle(Color(.systemGray3))
-                    }
-
-                Text("Is this a real photo, or made by AI?")
-                    .font(.title2)
-                    .multilineTextAlignment(.center)
-
-                HStack(spacing:12){
-                    answerButton(for: .real)
-                    answerButton(for: .ai)
-                }
-            }
-            else {
-                Text("You got \(score) out of \(rounds.count)")
-                    .font(.title.weight(.bold))
-
-                Text("Tap any round to see what gave it away.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-
-                ScrollView {
-                    VStack(spacing: 8) {
-                        ForEach(results) { result in
-                            resultRow(for: result)
-                            Divider()
-                        }
-                    }
-                }
+    var body: some View {
+        Group {
+            if isLoading {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let errorMessage {
+                ContentUnavailableView(errorMessage, systemImage: "exclamationmark.triangle")
+            } else if currentIndex < rounds.count {
+                questionView(rounds[currentIndex])
+            } else {
+                resultsView
             }
         }
         .padding(20)
+        .navigationTitle(challenge?.category.displayName ?? "Challenge")
+        .navigationBarTitleDisplayMode(.inline)
+        .task { await loadChallenge() }
     }
-    private func resultRow(for result: RoundResult) -> some View {
-        let isExpanded = (expandedResultID == result.id)
+
+    private func loadChallenge() async {
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+        do {
+            let fetched = try await ChallengeService.shared.fetchChallenge(id: challengeId)
+            print("GameView: loaded challenge \(challengeId) — category: \(fetched.category.rawValue), rounds: \(fetched.rounds.count)")
+            for round in fetched.rounds {
+                print("  - \(round.id) [isImage: \(round.isImage)] isAI: \(round.isAI) url: \(round.mediaUrl)")
+            }
+            challenge = fetched
+        } catch {
+            print("GameView: failed to load challenge \(challengeId) — \(error)")
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    // MARK: - In-progress round
+
+    private func questionView(_ round: ChallengeRound) -> some View {
+        VStack(spacing: 24) {
+            Text("Round \(currentIndex + 1) of \(rounds.count)")
+                .font(.headline)
+                .foregroundStyle(.secondary)
+
+            RemoteMediaView(urlString: round.mediaUrl, isImage: round.isImage) { image in
+                image.resizable().scaledToFill()
+            } placeholder: {
+                mediaContainer { ProgressView() }
+            } fallback: {
+                mediaContainer {
+                    VStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.system(size: 40))
+                            .foregroundStyle(Color(.systemGray3))
+                        Text("Couldn't load this media.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        Button("Retry") { mediaReloadToken = UUID() }
+                            .font(.footnote.weight(.semibold))
+                    }
+                }
+            }
+            .id(mediaReloadToken)
+            .frame(height: 320)
+            .frame(maxWidth: .infinity)
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+
+            Text("Is this a real photo, or made by AI?")
+                .font(.title2)
+                .multilineTextAlignment(.center)
+
+            HStack(spacing: 12) {
+                answerButton(judgeAsAI: false, label: "Real photo", icon: "camera.fill", color: .blue, round: round)
+                answerButton(judgeAsAI: true, label: "Made by AI", icon: "sparkles", color: .orange, round: round)
+            }
+        }
+    }
+
+    private func mediaContainer<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        RoundedRectangle(cornerRadius: 24, style: .continuous)
+            .fill(Color(.secondarySystemGroupedBackground))
+            .overlay { content() }
+    }
+
+    private func answerButton(judgeAsAI: Bool, label: String, icon: String, color: Color, round: ChallengeRound) -> some View {
+        Button {
+            results.append(judgeAsAI == round.isAI)
+            mediaReloadToken = UUID()
+            currentIndex += 1
+        } label: {
+            VStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.title2)
+                Text(label)
+                    .font(.title3.weight(.semibold))
+            }
+            .frame(maxWidth: .infinity, minHeight: 72)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(color)
+    }
+
+    // MARK: - Results
+
+    private var resultsView: some View {
+        let score = results.filter { $0 }.count
+        return ScrollView {
+            VStack(spacing: 16) {
+                Text("You got \(score) out of \(rounds.count)")
+                    .font(.title.weight(.bold))
+
+                Text("Tap any round to see the round id.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                VStack(spacing: 8) {
+                    ForEach(Array(rounds.enumerated()), id: \.offset) { index, round in
+                        resultRow(index: index, round: round)
+                        Divider()
+                    }
+                }
+            }
+            .padding(20)
+        }
+    }
+
+    private func resultRow(index: Int, round: ChallengeRound) -> some View {
+        let isExpanded = expandedResultIndex == index
+        let isCorrect = results.indices.contains(index) ? results[index] : false
 
         return VStack(alignment: .leading, spacing: 12) {
             Button {
                 withAnimation(.easeInOut(duration: 0.25)) {
-                    expandedResultID = isExpanded ? nil : result.id
+                    expandedResultIndex = isExpanded ? nil : index
                 }
             } label: {
                 HStack(spacing: 12) {
-                    Image(systemName: result.isCorrect ? "checkmark.circle.fill" : "xmark.circle")
-                        .foregroundStyle(result.isCorrect ? .green : .orange)
+                    Image(systemName: isCorrect ? "checkmark.circle.fill" : "xmark.circle")
+                        .foregroundStyle(isCorrect ? .green : .orange)
 
-                    Text("Round \(result.number)")
+                    Text("Round \(index + 1)")
                         .foregroundStyle(.primary)
 
-                    Text(result.isCorrect ? "Correct" : "Not quite")
+                    Text(isCorrect ? "Correct" : "Not quite")
                         .foregroundStyle(.secondary)
 
                     Spacer()
@@ -107,14 +196,12 @@ struct GameView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityHint(isExpanded ? "Hides the explanation" : "Shows the explanation")
 
             if isExpanded {
                 HStack(alignment: .top, spacing: 10) {
                     Text("🦉")
                         .accessibilityHidden(true)
-
-                    Text(result.round.clue)
+                    Text("round id: \(round.id) — isAI: \(round.isAI)")
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -122,92 +209,10 @@ struct GameView: View {
             }
         }
     }
-
-    private func answerButton(for answer: Answer) -> some View {
-        Button{
-            submit(answer)
-        } label: {
-            VStack(spacing: 6){
-                Image(systemName: answer.iconName)
-                    .font(.title2)
-                Text(answer.label)
-                    .font(.title3.weight(.semibold))
-            }
-            .frame(maxWidth: .infinity, minHeight: 72)
-        }
-        .buttonStyle(.borderedProminent)
-        .tint(answer.color)
-    }
-    
-    private func submit(_ answer: Answer) {
-        results.append(
-            RoundResult(number: currentIndex + 1, round: currentRound, answer: answer)
-        )
-        currentIndex += 1
-    }
 }
-
-
-enum Answer {
-    case real
-    case ai
-
-    var label: String{
-        switch self{
-        case .real: "Real photo"
-        case .ai: "Made by AI"
-        }
-    }
-
-    var iconName: String{
-        switch self{
-        case .real: "camera.fill"
-        case .ai: "sparkles"
-        }
-    }
-
-    var color: Color{
-        switch self{
-        case .real: .blue
-        case .ai: .orange
-        }
-    }
-}
-
-
-struct GameRound{
-    let imageName: String
-    let isAI: Bool
-    let clue: String
-
-    static let samples: [GameRound] = [
-        GameRound(imageName: "round1", isAI: true,
-                  clue: "Look at the trees at the back. The leaves blur into mush. Real cameras keep that detail."),
-        GameRound(imageName: "round2", isAI: false,
-                  clue: "Every shadow falls the same way, which is a good sign of a real photograph."),
-        GameRound(imageName: "round3", isAI: true,
-                  clue: "Count the fingers. AI struggles with hands more than almost anything else."),
-        GameRound(imageName: "round4", isAI: false,
-                  clue: "The writing on the sign is sharp and readable. AI usually garbles small text."),
-        GameRound(imageName: "round5", isAI: true,
-                  clue: "The pattern repeats too perfectly — real fabric folds and breaks up patterns.")
-    ]
-}
-
-
-struct RoundResult: Identifiable {
-    let id = UUID()
-    let number: Int
-    let round: GameRound
-    let answer: Answer
-
-    var isCorrect: Bool {
-        (answer == .ai) == round.isAI
-    }
-}
-
-
 
 #Preview {
-    GameView()
+    NavigationStack {
+        GameView(challengeId: "preview-challenge-id")
+    }
 }
