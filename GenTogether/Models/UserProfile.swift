@@ -17,4 +17,7 @@ struct UserProfile: Codable, Identifiable, Sendable {
     var accountType: AccountType
     var createdAt: Date
     var lastLoginAt: Date
+    /// Optional so decoding existing profiles written before this field
+    /// existed doesn't fail — treat a missing value as "none selected yet".
+    var preferredCategories: [ChallengeCategory]? = nil
 }

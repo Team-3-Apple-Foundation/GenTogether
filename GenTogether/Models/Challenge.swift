@@ -29,12 +29,14 @@ enum ChallengeCategory: String, CaseIterable, Codable, Sendable {
     case animals
     case artAndCraft = "art_and_craft"
     case nature
+    case foods
 
     var displayName: String {
         switch self {
         case .animals: "Animals"
-        case .artAndCraft: "Art & Craft"
+        case .artAndCraft: "Art and Craft"
         case .nature: "Nature"
+        case .foods: "Foods"
         }
     }
 }
