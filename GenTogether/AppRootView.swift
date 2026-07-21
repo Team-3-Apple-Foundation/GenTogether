@@ -13,6 +13,7 @@ import SwiftUI
 struct AppRootView: View {
     @StateObject private var authViewModel = AuthViewModel()
     @StateObject private var onboardingViewModel = OnboardingViewModel()
+    @State private var gameProgress = GameProgress()
     @State private var hasCheckedOnboarding = false
 
     var body: some View {
@@ -30,6 +31,7 @@ struct AppRootView: View {
             }
         }
         .environmentObject(authViewModel)
+        .environment(gameProgress)
         .onChange(of: authViewModel.currentUserId) { _, _ in
             hasCheckedOnboarding = false
         }
