@@ -88,21 +88,19 @@ struct OnboardingView: View {
     }
 
     // MARK: - Progress
-
     private var progressBar: some View {
-        HStack(spacing: 8) {
-            ForEach(OnboardingStep.allCases, id: \.self) { s in
-                Capsule()
-                    .fill(s.rawValue <= step.rawValue ? Palette.tan : Palette.inactive)
-                    .frame(height: 6)
+            HStack(spacing: 12) {
+                ForEach(OnboardingStep.allCases, id: \.self) { s in
+                    Capsule()
+                        .fill(s.rawValue <= step.rawValue ? Palette.progressGreen : Palette.inactive)
+                        .frame(height: 25)
+                }
             }
+            .padding(.horizontal, 30)
+            .padding(.top, 22)
+            .accessibilityElement()
+            .accessibilityLabel("Step \(step.rawValue + 1) of \(OnboardingStep.allCases.count)")
         }
-        .padding(.horizontal, 24)
-        .padding(.top, 18)
-        .accessibilityElement()
-        .accessibilityLabel("Step \(step.rawValue + 1) of \(OnboardingStep.allCases.count)")
-    }
-
     // MARK: - Content
 
     @ViewBuilder
@@ -277,6 +275,7 @@ struct OnboardingView: View {
         static let inactive     = Color(red: 0.87, green: 0.87, blue: 0.88)
         static let blue         = Color(red: 0.10, green: 0.45, blue: 0.91)
         static let selectedBlue = Color(red: 0.80, green: 0.88, blue: 0.98)
+        static let progressGreen = Color(red: 0.55, green: 0.78, blue: 0.35)
     }
 }
 

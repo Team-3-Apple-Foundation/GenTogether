@@ -2,8 +2,8 @@
 //  CommunityViewModel.swift
 //  GenTogether
 //
-//  Loads the active community question and its posts, and drives
-//  create/edit/delete for the current user's own posts.
+//  Loads the community feed and drives create/edit/delete/like for the
+//  current user's own posts.
 //
 
 import Foundation
@@ -11,7 +11,6 @@ import Combine
 
 @MainActor
 final class CommunityViewModel: ObservableObject {
-    @Published private(set) var activeQuestion: CommunityQuestion?
     @Published private(set) var posts: [CommunityPost] = []
     @Published private(set) var commentCounts: [String: Int] = [:]
     @Published var isLoading = false
@@ -31,8 +30,7 @@ final class CommunityViewModel: ObservableObject {
         errorMessage = nil
         defer { isLoading = false }
         do {
-            activeQuestion = try await communityService.fetchActiveCommunityQuestion()
-            posts = try await communityService.fetchPosts(communityQuestionId: activeQuestion?.id)
+            posts = try await communityService.fetchPosts()
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -48,16 +46,11 @@ final class CommunityViewModel: ObservableObject {
     }
 
     func createPost(userId: String, displayName: String) async {
-        guard let questionId = activeQuestion?.id else {
-            errorMessage = "There's no community question to post under yet."
-            return
-        }
         errorMessage = nil
         do {
             try await communityService.createPost(
                 userId: userId,
                 displayName: displayName,
-                communityQuestionId: questionId,
                 content: draftContent
             )
             draftContent = ""
@@ -85,6 +78,35 @@ final class CommunityViewModel: ObservableObject {
             try await communityService.deleteOwnPost(postId: postId, userId: userId)
             posts.removeAll { $0.id == postId }
         } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func toggleLike(_ post: CommunityPost, userId: String) async {
+        guard let postId = post.id else { return }
+        let isLiked = post.isLiked(by: userId)
+
+        // Optimistic update: flip the local copy immediately so the heart
+        // responds on tap, then reconcile with the server.
+        if let index = posts.firstIndex(where: { $0.id == postId }) {
+            if isLiked {
+                posts[index].likedBy.removeAll { $0 == userId }
+            } else {
+                posts[index].likedBy.append(userId)
+            }
+        }
+
+        do {
+            try await communityService.toggleLike(postId: postId, userId: userId, isCurrentlyLiked: isLiked)
+        } catch {
+            // Roll back the optimistic change on failure.
+            if let index = posts.firstIndex(where: { $0.id == postId }) {
+                if isLiked {
+                    posts[index].likedBy.append(userId)
+                } else {
+                    posts[index].likedBy.removeAll { $0 == userId }
+                }
+            }
             errorMessage = error.localizedDescription
         }
     }

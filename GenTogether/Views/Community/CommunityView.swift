@@ -1,3 +1,8 @@
+//
+//  CommunityView.swift
+//  GenTogether
+//
+
 import SwiftUI
 
 struct CommunityView: View {
@@ -7,197 +12,141 @@ struct CommunityView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 24) {
-                    TodaysQuestionCard(
-                        question: viewModel.activeQuestion?.question,
-                        draftContent: $viewModel.draftContent,
-                        isSubmitting: viewModel.isLoading,
-                        canSubmit: authViewModel.isAuthenticated,
-                        onSubmit: {
-                            Task {
-                                guard let userId = authViewModel.currentUserId else { return }
-                                await viewModel.createPost(userId: userId, displayName: authViewModel.displayName ?? "Member")
-                            }
-                        }
-                    )
+                VStack(spacing: 20) {
+                    composer
 
                     if let errorMessage = viewModel.errorMessage {
                         Text(errorMessage)
                             .font(.footnote)
                             .foregroundStyle(.red)
-                            .padding(.horizontal)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 20)
                     }
 
                     if viewModel.isEmpty {
-                        ContentUnavailableView("No posts yet", systemImage: "bubble.left.and.bubble.right")
-                            .padding(.top, 24)
+                        ContentUnavailableView(
+                            "No posts yet",
+                            systemImage: "bubble.left.and.bubble.right",
+                            description: Text("Be the first to share something with the community.")
+                        )
+                        .padding(.top, 40)
                     } else {
-                        VStack(spacing: 0) {
+                        LazyVStack(spacing: 14) {
                             ForEach(viewModel.posts) { post in
                                 NavigationLink {
                                     CommunityPostDetailView(post: post)
                                 } label: {
-                                    CommunityPostRow(
-                                        post: post,
-                                        commentCount: viewModel.commentCounts[post.id ?? ""] ?? 0,
-                                        isOwnPost: post.userId == authViewModel.currentUserId,
-                                        onDelete: {
-                                            Task {
-                                                guard let userId = authViewModel.currentUserId else { return }
-                                                await viewModel.deletePost(post, userId: userId)
-                                            }
-                                        }
-                                    )
-                                    .task { await viewModel.loadCommentCount(for: post) }
+                                    postCard(post)
                                 }
                                 .buttonStyle(.plain)
-                                Divider()
-                                    .padding(.leading, 16)
+                                .task { await viewModel.loadCommentCount(for: post) }
                             }
                         }
+                        .padding(.horizontal, 20)
                     }
                 }
-                .padding(.top, 16)
-                .padding(.bottom, 24)
+                .padding(.vertical, 20)
             }
-            .background(Color(.systemGroupedBackground))
             .navigationTitle("Community")
-            .navigationBarTitleDisplayMode(.large)
-            // Tinted large-title nav bar reproduces the orange header from the
-            // mock while staying inside the native, HIG-approved nav bar —
-            // rather than faking a header with a manual ZStack.
-            .toolbarBackground(.visible, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
-            .task { await viewModel.load() }
+            .background(Color(.systemGroupedBackground))
             .refreshable { await viewModel.load() }
+            .task { await viewModel.load() }
         }
     }
-}
 
-// MARK: - Today's Question Card
+    // MARK: Composer
 
-struct TodaysQuestionCard: View {
-    let question: String?
-    @Binding var draftContent: String
-    let isSubmitting: Bool
-    let canSubmit: Bool
-    let onSubmit: () -> Void
-
-    var body: some View {
-        VStack(alignment: .center, spacing: 16) {
-            Text(question ?? "Today's Question")
-                .font(.title2.weight(.bold))
-                .multilineTextAlignment(.center)
-                // Dynamic Type friendly — no fixed font sizes anywhere.
-
-            VStack(spacing: 12) {
-                TextEditor(text: $draftContent)
-                    .scrollContentBackground(.hidden)
-                    .padding(12)
-                    .frame(height: 220)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(Color(.secondarySystemGroupedBackground))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(Color.orange.opacity(0.55), lineWidth: 1.5)
-                    )
-                    .accessibilityLabel("Answer input area")
-
-                Button(action: onSubmit) {
-                    Group {
-                        if isSubmitting {
-                            ProgressView()
-                        } else {
-                            Text("Post")
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.orange)
-                .disabled(isSubmitting || !canSubmit || draftContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }
-        }
-        .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Color(.systemBackground)) // adapts to Dark Mode
-                .shadow(color: .black.opacity(0.06), radius: 10, x: 0, y: 4)
-        )
-        .padding(.horizontal, 16)
-    }
-}
-
-// MARK: - Community Post Row
-
-struct CommunityPostRow: View {
-    let post: CommunityPost
-    let commentCount: Int
-    let isOwnPost: Bool
-    let onDelete: () -> Void
-
-    var body: some View {
+    private var composer: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                Circle()
-                    .fill(Color(.systemGray4))
-                    .frame(width: 40, height: 40) // ≥44pt tap target once wrapped in a button
-                    .overlay(
-                        Image(systemName: "person.fill")
-                            .font(.system(size: 16))
-                            .foregroundStyle(Color(.systemBackground))
+            Text("Share with the community")
+                .font(.headline)
+
+            TextEditor(text: $viewModel.draftContent)
+                .frame(minHeight: 90)
+                .padding(8)
+                .background(Color(.secondarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(.orange.opacity(0.5), lineWidth: 1)
+                )
+
+            Button {
+                Task {
+                    guard let userId = authViewModel.currentUserId else { return }
+                    await viewModel.createPost(
+                        userId: userId,
+                        displayName: authViewModel.displayName ?? "Member"
                     )
-                    .accessibilityHidden(true)
-
-                Text(post.displayName)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .textCase(.uppercase)
-
-                Spacer()
-
-                if isOwnPost {
-                    Menu {
-                        Button(role: .destructive, action: onDelete) {
-                            Label("Delete", systemImage: "trash")
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis")
-                            .foregroundStyle(.secondary)
-                            .padding(8)
-                    }
                 }
+            } label: {
+                Text("Post")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.orange)
+            .disabled(
+                !authViewModel.isAuthenticated ||
+                viewModel.draftContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            )
+        }
+        .padding(16)
+        .background(.white)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .padding(.horizontal, 20)
+    }
+
+    // MARK: Post card
+
+    private func postCard(_ post: CommunityPost) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Image(systemName: "person.crop.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(.orange)
+                Text(post.displayName)
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                Text(post.createdAt, style: .relative)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Text(post.content)
-                .font(.title3)
+                .font(.body)
                 .foregroundStyle(.primary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
 
             HStack(spacing: 20) {
-                statLabel(icon: "bubble.left", value: commentCount, description: "comments")
+                Button {
+                    Task {
+                        guard let userId = authViewModel.currentUserId else { return }
+                        await viewModel.toggleLike(post, userId: userId)
+                    }
+                } label: {
+                    let liked = authViewModel.currentUserId.map(post.isLiked(by:)) ?? false
+                    Label("\(post.likeCount)", systemImage: liked ? "heart.fill" : "heart")
+                        .font(.subheadline)
+                        .foregroundStyle(liked ? .red : .secondary)
+                }
+                .buttonStyle(.plain)
+
+                Label("\(viewModel.commentCounts[post.id ?? ""] ?? 0)",
+                      systemImage: "bubble.right")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
                 Spacer()
             }
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .accessibilityElement(children: .combine)
-    }
-
-    private func statLabel(icon: String, value: Int, description: String) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: icon)
-            Text("\(value)")
-        }
-        .accessibilityLabel("\(value) \(description)")
+        .padding(16)
+        .background(.white)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 }
 
-
 #Preview {
-    CommunityView()
-        .environmentObject(AuthViewModel())
+    CommunityView().environmentObject(AuthViewModel())
 }

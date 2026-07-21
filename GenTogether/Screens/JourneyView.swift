@@ -5,10 +5,22 @@ struct JourneyView: View {
     private let challenges = GameChallenge.samples
     
     @Environment(GameProgress.self) private var progress
-    
+
+    @State private var activeChallenge: GameChallenge?
+
     var body:some View{
         NavigationStack{
-            ScrollView{
+            VStack(spacing: 0) {
+                GTHeader(
+                    title: "Journey",
+                    trailing: AnyView(
+                        Button("Reset", systemImage: "arrow.counterclockwise") {
+                            progress.resetAllProgress()
+                        }
+                    )
+                )
+
+                ScrollView{
                 VStack(spacing: 16){
                     Text("Select a challenge below to play.")
                         .font(.title3)
@@ -20,8 +32,8 @@ struct JourneyView: View {
                     ForEach(challenges) {challenge in
                         let status = progress.status(forChallengeNumber: challenge.number)
                         
-                        NavigationLink{
-                            GameView(challenge: challenge)
+                        Button {
+                            activeChallenge = challenge
                         } label: {
                             ChallengeRow (challenge: challenge, status: status)
                         }
@@ -40,13 +52,10 @@ struct JourneyView: View {
                 .padding(20)
             }
             .background(Color(.systemGroupedBackground))
-            .navigationTitle("Journey")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar{
-                ToolbarItem(placement: .topBarTrailing){
-                    Button("Reset", systemImage: "arrow.counterclockwise"){
-                        progress.resetAllProgress()
-                    }
+            }
+            .fullScreenCover(item: $activeChallenge) { challenge in
+                NavigationStack {
+                    GameView(challenge: challenge)
                 }
             }
         }
