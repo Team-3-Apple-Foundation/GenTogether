@@ -61,7 +61,7 @@ struct HomeView: View {
             .foregroundStyle(.black)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
-            .background(GTColor.brand)
+            .background(GTColor.brand2)
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             
         }

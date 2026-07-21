@@ -38,7 +38,22 @@ struct TipCard: View {
                 case .image(let name):
                     Image(name)
                         .resizable()
-                        .scaledToFill()
+                        .scaledToFit()
+                case .imageWithText(let name, let caption):
+                    VStack(spacing: 12) {
+                        Image(name)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxHeight: 200)
+                        Text(caption)
+                            .font(.title3)
+                            .multilineTextAlignment(.center)
+                            .foregroundStyle(.secondary)
+                            .minimumScaleFactor(0.5)
+                            .lineLimit(5)
+                    }
+                    .padding(.top, 36)
+                    .padding(.horizontal, 20)
                 }
             }
             .gtCardBackground()
