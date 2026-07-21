@@ -120,7 +120,6 @@ private struct CommentRow: View {
                 id: "sample",
                 userId: "u1",
                 displayName: "Sample User",
-                communityQuestionId: "q1",
                 content: "Sample post content for preview.",
                 createdAt: Date(),
                 updatedAt: Date()

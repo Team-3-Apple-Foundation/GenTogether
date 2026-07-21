@@ -3,7 +3,6 @@
 //  GenTogether
 //
 //  Firestore paths:
-//    communityQuestions/{communityQuestionId}
 //    communityPosts/{postId}
 //    communityPosts/{postId}/comments/{commentId}
 //
@@ -27,41 +26,22 @@ final class CommunityService {
 
     static let maxContentLength = 1000
 
-    // MARK: Community question
-
-    func fetchActiveCommunityQuestion() async throws -> CommunityQuestion? {
-        try FirebaseEnvironment.requireConfigured()
-        do {
-            let snapshot = try await db.collection("communityQuestions")
-                .whereField("isActive", isEqualTo: true)
-                .order(by: "displayDate", descending: true)
-                .limit(to: 1)
-                .getDocuments()
-            guard let document = snapshot.documents.first else { return nil }
-            return try document.data(as: CommunityQuestion.self)
-        } catch {
-            throw CommunityServiceError.readFailed(error)
-        }
-    }
-
     // MARK: Posts
 
-    func fetchPosts(communityQuestionId: String? = nil, limit: Int = 50) async throws -> [CommunityPost] {
+    func fetchPosts(limit: Int = 50) async throws -> [CommunityPost] {
         try FirebaseEnvironment.requireConfigured()
-        var query: Query = db.collection("communityPosts")
-        if let communityQuestionId {
-            query = query.whereField("communityQuestionId", isEqualTo: communityQuestionId)
-        }
-        query = query.order(by: "createdAt", descending: true).limit(to: limit)
         do {
-            let snapshot = try await query.getDocuments()
+            let snapshot = try await db.collection("communityPosts")
+                .order(by: "createdAt", descending: true)
+                .limit(to: limit)
+                .getDocuments()
             return try snapshot.documents.map { try $0.data(as: CommunityPost.self) }
         } catch {
             throw CommunityServiceError.readFailed(error)
         }
     }
 
-    func createPost(userId: String, displayName: String, communityQuestionId: String, content: String) async throws {
+    func createPost(userId: String, displayName: String, content: String) async throws {
         let trimmed = try Self.validated(content: content)
         try FirebaseEnvironment.requireConfigured()
         let ref = db.collection("communityPosts").document()
@@ -69,7 +49,6 @@ final class CommunityService {
         let post = CommunityPost(
             userId: userId,
             displayName: displayName,
-            communityQuestionId: communityQuestionId,
             content: trimmed,
             createdAt: now,
             updatedAt: now
@@ -102,6 +81,23 @@ final class CommunityService {
         try await requireOwnership(of: ref, userId: userId, decode: CommunityPost.self, ownerId: \.userId)
         do {
             try await ref.delete()
+        } catch {
+            throw CommunityServiceError.writeFailed(error)
+        }
+    }
+
+    /// Toggles the current user's like on a post. Uses arrayUnion/arrayRemove
+    /// so two people liking at once can't clobber each other's entry — no
+    /// transaction needed, since each operation touches only its own userId.
+    func toggleLike(postId: String, userId: String, isCurrentlyLiked: Bool) async throws {
+        try FirebaseEnvironment.requireConfigured()
+        let ref = db.collection("communityPosts").document(postId)
+        do {
+            try await ref.updateData([
+                "likedBy": isCurrentlyLiked
+                    ? FieldValue.arrayRemove([userId])
+                    : FieldValue.arrayUnion([userId])
+            ])
         } catch {
             throw CommunityServiceError.writeFailed(error)
         }
