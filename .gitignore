@@ -67,3 +67,22 @@ node_modules/
 
 # dataconnect generated files
 .dataconnect
+
+# --- macOS / Xcode ---
+
+# Finder metadata — never useful in a repo
+.DS_Store
+
+# Xcode per-user state: breakpoints, open tabs, window layout.
+# Personal to each developer, and a constant source of merge conflicts.
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+
+# Build output
+DerivedData/
+build/
+
+# Never commit secrets. API keys belong in a config file kept out of
+# git, or in the Keychain for anything user-specific.
+Secrets.plist
