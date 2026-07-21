@@ -15,25 +15,21 @@ struct HomeView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     Text("Learn to identify Generative AI!")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .font(.title2.bold())
+                        .foregroundStyle(.primary)
                         .padding(.top, 20)
 
-                    InfoCard(
-                        iconName: "checkmark",
-                        iconColor: GTColor.success,
-                        iconBackground: GTColor.successSoft,
-                        title: "7 out of 10 Correct",
-                        body: "Last game played."
-                    )
-
-                    InfoCard(
-                        iconName: "lightbulb.fill",
-                        iconColor: GTColor.tip,
-                        iconBackground: GTColor.tipSoft,
-                        title: "Tip of the Day",
-                        body: "AI-generated images often struggle with hands, text, and repeating background patterns — look closely before you decide."
-                    )
+                    TabView {
+                        ForEach(Tip.samples) { tip in
+                            TipCard(tip: tip)
+                        }
+                    }
+                    .tabViewStyle(.page(indexDisplayMode: .always))
+                    .frame(height: 430)
+                    .onAppear {
+                        UIPageControl.appearance().currentPageIndicatorTintColor = .black
+                        UIPageControl.appearance().pageIndicatorTintColor = UIColor.black.withAlphaComponent(0.25)
+                    }
 
                     Spacer(minLength: 12)
 
