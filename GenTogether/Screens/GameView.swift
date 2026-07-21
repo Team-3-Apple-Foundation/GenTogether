@@ -160,6 +160,7 @@ struct GameView: View {
             }
         }
         .navigationBarBackButtonHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
         .confirmationDialog(
             "Leave this game?",
             isPresented: $showLeaveConfirmation,

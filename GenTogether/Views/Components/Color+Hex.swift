@@ -25,7 +25,7 @@ extension Color {
 /// system formalizes them later.
 enum GTColor {
     /// Header background and primary CTA button — warm orange/brown.
-    static let brand = Color(hex: "D8AE86")
+    static let brand = Color(.orange)
     /// Screen background — warm off-white.
     static let background = Color(hex: "F5F4F1")
     /// "Last game" card icon circle — soft green.
