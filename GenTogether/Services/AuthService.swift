@@ -112,6 +112,26 @@ final class AuthService: ObservableObject {
         }
     }
 
+    /// Sends a Firebase password-reset email. Firebase handles the email
+    /// delivery and hosts the reset page (see Authentication → Templates →
+    /// Password reset in the console), so the app only needs to trigger it.
+    func sendPasswordReset(email: String) async throws {
+        try FirebaseEnvironment.requireConfigured()
+        do {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                Auth.auth().sendPasswordReset(withEmail: email) { error in
+                    if let error {
+                        continuation.resume(throwing: error)
+                    } else {
+                        continuation.resume()
+                    }
+                }
+            }
+        } catch {
+            throw AuthServiceError.passwordResetFailed(error)
+        }
+    }
+
     func signOut() throws {
         try FirebaseEnvironment.requireConfigured()
         do {
@@ -197,6 +217,7 @@ enum AuthServiceError: LocalizedError {
     case signOutFailed(Error)
     case linkingFailed(Error)
     case googleSignInFailed(Error)
+    case passwordResetFailed(Error)
 
     var errorDescription: String? {
         switch self {
@@ -212,6 +233,8 @@ enum AuthServiceError: LocalizedError {
             return "Couldn't upgrade your guest account: \(error.localizedDescription)"
         case .googleSignInFailed(let error):
             return "Couldn't sign in with Google: \(error.localizedDescription)"
+        case .passwordResetFailed(let error):
+            return "Couldn't send the reset email: \(error.localizedDescription)"
         }
     }
 }

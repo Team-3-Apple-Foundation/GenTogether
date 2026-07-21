@@ -20,12 +20,14 @@ enum AuthLoadingAction: Equatable {
     case email
     case google
     case guest
+    case passwordReset
 }
 
 @MainActor
 final class AuthViewModel: ObservableObject {
     @Published private(set) var loadingAction: AuthLoadingAction = .none
     @Published var errorMessage: String?
+    @Published var infoMessage: String?
     @Published private(set) var isAuthenticated = false
     @Published private(set) var isAnonymous = false
     @Published private(set) var currentUserId: String?
@@ -62,6 +64,7 @@ final class AuthViewModel: ObservableObject {
         guard loadingAction == .none else { return }
         loadingAction = .guest
         errorMessage = nil
+        infoMessage = nil
         defer { loadingAction = .none }
 
         do {
@@ -99,6 +102,39 @@ final class AuthViewModel: ObservableObject {
             let user = try await self.authService.signIn(email: email, password: password)
             try await self.userService.updateLastLogin(userId: user.uid)
         }
+    }
+
+    /// Sends a password-reset email. Deliberately shows the same
+    /// confirmation whether or not the email belongs to a real account, so
+    /// the screen never reveals which addresses are registered. A genuinely
+    /// malformed email still surfaces an error so the user can fix a typo.
+    func sendPasswordReset(email: String) async {
+        guard loadingAction == .none else { return }
+
+        let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            errorMessage = "Enter your email above, then tap Forgot password."
+            return
+        }
+
+        loadingAction = .passwordReset
+        errorMessage = nil
+        infoMessage = nil
+        defer { loadingAction = .none }
+
+        do {
+            try await authService.sendPasswordReset(email: trimmed)
+        } catch {
+            // Swallow "user not found" so we don't reveal account existence;
+            // any other error (e.g. malformed address) is worth showing.
+            let code = AuthErrorCode(rawValue: (error as NSError).code)
+            if code != .userNotFound {
+                errorMessage = error.localizedDescription
+                return
+            }
+        }
+
+        infoMessage = "If that email is registered, we've sent a link to reset your password. Please check your inbox."
     }
 
     /// Upgrades the current guest session to a registered account,
@@ -156,6 +192,7 @@ final class AuthViewModel: ObservableObject {
         guard loadingAction == .none else { return }
         loadingAction = action
         errorMessage = nil
+        infoMessage = nil
         do {
             try await operation()
         } catch {
