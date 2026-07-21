@@ -57,6 +57,7 @@ final class OnboardingViewModel: ObservableObject {
 
     private let preferenceService: PreferenceService
     private let userIdProvider: @MainActor () -> String?
+    private var resetCancellable: AnyCancellable?
 
     init(
         preferenceService: PreferenceService? = nil,
@@ -64,14 +65,37 @@ final class OnboardingViewModel: ObservableObject {
     ) {
         self.preferenceService = preferenceService ?? .shared
         self.userIdProvider = userIdProvider ?? { AuthService.shared.currentUser?.uid }
+
+        // UserService broadcasts this on sign-out so this view model — which
+        // AppRootView keeps alive for the whole app session — never keeps
+        // showing one account's answers after another account signs in.
+        resetCancellable = NotificationCenter.default
+            .publisher(for: .userSessionDidEnd)
+            .sink { [weak self] _ in self?.resetToDefaults() }
+    }
+
+    // MARK: - Reset
+
+    /// Puts every answer field back to its just-installed-the-app default.
+    /// Called before every load AND on sign-out, so a brand-new account (or
+    /// a fetch that finds no saved document) never inherits the previous
+    /// account's leftover in-memory values.
+    private func resetToDefaults() {
+        name = ""
+        aiFamiliarity = ""
+        learningGoal = ""
+        interests = []
+        learningMinutes = 10
+        didComplete = false
+        errorMessage = nil
     }
 
     // MARK: - Load
 
     func loadExistingPreferences() async {
+        resetToDefaults()
         guard let userId = userIdProvider() else { return }
         isLoading = true
-        didComplete = false          // ← reset first, so a nil fetch means "not done"
         defer { isLoading = false }
 
         do {
@@ -83,6 +107,9 @@ final class OnboardingViewModel: ObservableObject {
                 learningMinutes = existing.learningMinutes
                 didComplete = existing.onboardingCompleted
             }
+            // else: no saved document for this uid (brand-new account) —
+            // resetToDefaults() above already left every field blank, so
+            // there's nothing left to do.
         } catch {
             errorMessage = error.localizedDescription
         }

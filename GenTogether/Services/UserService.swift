@@ -9,6 +9,14 @@
 import Foundation
 import FirebaseFirestore
 
+/// Posted by `UserService.resetLocalUserState()` so any long-lived, per-user
+/// view model (one that outlives a single sign-in, like `AppRootView`'s
+/// `OnboardingViewModel`) can clear its own in-memory fields without
+/// `UserService` needing a direct reference to it.
+extension Notification.Name {
+    static let userSessionDidEnd = Notification.Name("UserService.userSessionDidEnd")
+}
+
 final class UserService {
     static let shared = UserService()
 
@@ -91,11 +99,12 @@ final class UserService {
     }
 
     /// Called on sign-out to clear any in-memory user state the app holds
-    /// outside Firestore (view model caches, etc.). There is no local
-    /// on-disk cache today beyond Firestore's own persistence, which
-    /// Firebase manages itself, so this is currently a hook for future use.
+    /// outside Firestore (view model caches, etc.). UserService itself has
+    /// no such state — it only ever reads/writes Firestore directly — so
+    /// this broadcasts a notification instead of reaching into specific
+    /// view models it has no reference to.
     func resetLocalUserState() {
-        // Intentionally empty: no additional local cache to clear yet.
+        NotificationCenter.default.post(name: .userSessionDidEnd, object: nil)
     }
 }
 
