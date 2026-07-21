@@ -2,7 +2,7 @@
 import SwiftUI
 
 struct JourneyView: View {
-    private let challenges = Challenge.samples
+    private let challenges = GameChallenge.samples
     
     @Environment(GameProgress.self) private var progress
     
@@ -85,7 +85,7 @@ enum ChallengeStatus {
     }
 }
 
-struct Challenge: Identifiable {
+struct GameChallenge: Identifiable {
     let id = UUID()
     let number: Int
     let title: String
@@ -93,22 +93,22 @@ struct Challenge: Identifiable {
     
     let rounds: [GameRound]
     
-    static let samples: [Challenge] = [
-        Challenge(number: 1, title: "Nature",   rounds: GameRound.nature),
-        Challenge(number: 2, title: "Animals",  rounds: GameRound.animals),
-        Challenge(number: 3, title: "Art",      rounds: GameRound.art),
-        Challenge(number: 4, title: "Food",     rounds: GameRound.food),
-//        Challenge(number: 5, title: "Faces",  rounds: GameRound.samples),
-//        Challenge(number: 6, title: "Places", rounds: GameRound.samples),
-//        Challenge(number: 7, title: "Buildings", rounds: GameRound.samples),
-//        Challenge(number: 8, title: "Cars",   rounds: GameRound.samples),
-//        Challenge(number: 9, title: "Flowers", rounds: GameRound.samples),
-        Challenge(number: 10, title: "Art",     rounds: GameRound.art)
+    static let samples: [GameChallenge] = [
+        GameChallenge(number: 1, title: "Nature",   rounds: GameRound.nature),
+        GameChallenge(number: 2, title: "Animals",  rounds: GameRound.animals),
+        GameChallenge(number: 3, title: "Art",      rounds: GameRound.art),
+        GameChallenge(number: 4, title: "Food",     rounds: GameRound.food),
+//        GameChallenge(number: 5, title: "Faces",  rounds: GameRound.samples),
+//        GameChallenge(number: 6, title: "Places", rounds: GameRound.samples),
+//        GameChallenge(number: 7, title: "Buildings", rounds: GameRound.samples),
+//        GameChallenge(number: 8, title: "Cars",   rounds: GameRound.samples),
+//        GameChallenge(number: 9, title: "Flowers", rounds: GameRound.samples),
+        GameChallenge(number: 10, title: "Art",     rounds: GameRound.art)
     ]
 }
 
 struct ChallengeRow: View {
-    let challenge: Challenge
+    let challenge: GameChallenge
     let status: ChallengeStatus
 
     var body: some View {
@@ -146,4 +146,3 @@ struct ChallengeRow: View {
         .environment(GameProgress())
 
 }
-

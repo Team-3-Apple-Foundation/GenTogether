@@ -27,9 +27,9 @@ struct GameView: View {
 
     /// Held as @State so "Next challenge" can swap it without pushing a new
     /// screen — the navigation stack stays two deep and back always means Journey.
-    @State private var challenge: Challenge
+    @State private var challenge: GameChallenge
 
-    init(challenge: Challenge) {
+    init(challenge: GameChallenge) {
         _challenge = State(initialValue: challenge)
     }
 
@@ -55,8 +55,8 @@ struct GameView: View {
     }
 
     /// The challenge after this one, or nil if this is the last.
-    private var nextChallenge: Challenge? {
-        Challenge.samples.first { $0.number == challenge.number + 1 }
+    private var nextChallenge: GameChallenge? {
+        GameChallenge.samples.first { $0.number == challenge.number + 1 }
     }
 
     var body: some View{
@@ -296,7 +296,7 @@ struct GameView: View {
 
     /// Clears every trace of the last game so a new one starts fresh.
     /// One reset function, so new state can only be forgotten in one place.
-    private func startGame(_ newChallenge: Challenge) {
+    private func startGame(_ newChallenge: GameChallenge) {
         challenge = newChallenge
         currentIndex = 0
         results = []
@@ -424,7 +424,7 @@ struct RoundResult: Identifiable {
 
 #Preview {
     NavigationStack {
-        GameView(challenge: Challenge.samples[0])
+        GameView(challenge: GameChallenge.samples[0])
     }
     .environment(GameProgress())
 }
