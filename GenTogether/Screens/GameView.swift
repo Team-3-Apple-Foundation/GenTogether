@@ -59,91 +59,90 @@ struct GameView: View {
         GameChallenge.samples.first { $0.number == challenge.number + 1 }
     }
 
-    var body: some View{
-        VStack(spacing: 24){
-            if currentIndex < rounds.count{
-                Text(challenge.title)
-                    .font(.largeTitle.weight(.bold))
+    var body: some View {
+        Group {
+            if currentIndex < rounds.count {
+                VStack(spacing: 24) {
+                    Text(challenge.title)
+                        .font(.largeTitle.weight(.bold))
 
-                Text("Round \(currentIndex + 1) of \(rounds.count)")
-                    .font(.headline)
-                    .foregroundStyle(.secondary)
+                    Text("Round \(currentIndex + 1) of \(rounds.count)")
+                        .font(.headline)
+                        .foregroundStyle(.secondary)
 
-                Image(currentRound.imageName)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 320)
-                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-                    .accessibilityLabel("Photo for round \(currentIndex + 1)")
+                    Image(currentRound.imageName)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 320)
+                        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                        .accessibilityLabel("Photo for round \(currentIndex + 1)")
 
-                Text("Is this a real photo, or made by AI?")
-                    .font(.title2)
-                    .multilineTextAlignment(.center)
+                    Text("Is this a real photo, or made by AI?")
+                        .font(.title2)
+                        .multilineTextAlignment(.center)
 
-                HStack(spacing:12){
-                    answerButton(for: .real)
-                    answerButton(for: .ai)
+                    HStack(spacing: 12) {
+                        answerButton(for: .real)
+                        answerButton(for: .ai)
+                    }
                 }
-            }
-            else {
-                Text("You got \(score) out of \(rounds.count)")
-                    .font(.title.weight(.bold))
-
-                // Icon + word + colour, and never the word "failed" — a near
-                // miss should read as an invitation, not a verdict.
-                Label(
-                    passed
-                    ? "Challenge complete — the next one is unlocked."
-                    : "You need \(passMark) correct to unlock the next challenge. Have another go?",
-                    systemImage: passed ? "lock.open.fill" : "arrow.clockwise"
-                )
-                .font(.title3)
-                .foregroundStyle(passed ? .green : .orange)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-
-                Text("Tap any round to see what gave it away.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-
+                .padding(20)
+            } else {
                 ScrollView {
-                    VStack(spacing: 8) {
-                        ForEach(results) { result in
-                            resultRow(for: result)
-                            Divider()
+                    VStack(spacing: 24) {
+                        Text("You got \(score) out of \(rounds.count)")
+                            .font(.title.weight(.bold))
+
+                        Label(
+                            passed
+                            ? "Challenge complete — the next one is unlocked."
+                            : "You need \(passMark) correct to unlock the next challenge. Have another go?",
+                            systemImage: passed ? "lock.open.fill" : "arrow.clockwise"
+                        )
+                        .font(.title3)
+                        .foregroundStyle(passed ? .green : .orange)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                        Text("Tap any round to see what gave it away.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+
+                        VStack(spacing: 8) {
+                            ForEach(results) { result in
+                                resultRow(for: result)
+                                Divider()
+                            }
+                        }
+
+                        if let nextChallenge {
+                            Button {
+                                startGame(nextChallenge)
+                            } label: {
+                                Label("Next challenge", systemImage: "arrow.right.circle.fill")
+                                    .font(.title3.weight(.semibold))
+                                    .frame(maxWidth: .infinity, minHeight: 56)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(!passed)
+                            .accessibilityHint(
+                                passed
+                                ? "Starts \(nextChallenge.title)."
+                                : "Locked. Score \(passMark) or more to unlock it."
+                            )
+                        }
+
+                        if passed {
+                            playAgainButton.buttonStyle(.bordered)
+                        } else {
+                            playAgainButton.buttonStyle(.borderedProminent)
                         }
                     }
-                }
-
-                // Only offered when there is a next challenge to go to.
-                if let nextChallenge {
-                    Button {
-                        startGame(nextChallenge)
-                    } label: {
-                        Label("Next challenge", systemImage: "arrow.right.circle.fill")
-                            .font(.title3.weight(.semibold))
-                            .frame(maxWidth: .infinity, minHeight: 56)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!passed)
-                    .accessibilityHint(
-                        passed
-                        ? "Starts \(nextChallenge.title)."
-                        : "Locked. Score \(passMark) or more to unlock it."
-                    )
-                }
-
-                // Whichever action makes sense is the prominent one, so the
-                // screen always points at a single obvious next step.
-                if passed {
-                    playAgainButton.buttonStyle(.bordered)
-                } else {
-                    playAgainButton.buttonStyle(.borderedProminent)
+                    .padding(20)
                 }
             }
         }
-        .padding(20)
         .navigationTitle(currentIndex < rounds.count ? "" : "Your results")
         .navigationBarTitleDisplayMode(.inline)
         // Hides the automatic back chevron so ours is the only way out —
@@ -177,6 +176,7 @@ struct GameView: View {
             }
         }
     }
+
     private func resultRow(for result: RoundResult) -> some View {
         let isExpanded = (expandedResultID == result.id)
 
@@ -211,24 +211,38 @@ struct GameView: View {
             .accessibilityHint(isExpanded ? "Hides the explanation" : "Shows the explanation")
 
             if isExpanded {
-                HStack(alignment: .top, spacing: 10) {
-                    Text("🦉")
-                        .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 12) {
+                    Image(result.round.imageName)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 140, height: 140)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .accessibilityLabel("Photo from round \(result.number)")
 
-                    Text(result.round.clue)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    Text("This image was \(result.round.isAI ? "made by AI" : "a real photo").")
+                        .font(.headline)
+                        .foregroundStyle(result.round.isAI ? .orange : .blue)
+
+                    HStack(alignment: .top, spacing: 10) {
+                        Text("🦉")
+                            .accessibilityHidden(true)
+
+                        Text(result.round.clue)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
-                .padding(.bottom, 4)
+                .padding(.bottom, 8)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
     }
 
     private func answerButton(for answer: Answer) -> some View {
-        Button{
+        Button {
             submit(answer)
         } label: {
-            VStack(spacing: 6){
+            VStack(spacing: 6) {
                 Image(systemName: answer.iconName)
                     .font(.title2)
                 Text(answer.label)
@@ -348,22 +362,22 @@ enum Answer {
     case real
     case ai
 
-    var label: String{
-        switch self{
+    var label: String {
+        switch self {
         case .real: "Real photo"
         case .ai: "Made by AI"
         }
     }
 
-    var iconName: String{
-        switch self{
+    var iconName: String {
+        switch self {
         case .real: "camera.fill"
         case .ai: "sparkles"
         }
     }
 
-    var color: Color{
-        switch self{
+    var color: Color {
+        switch self {
         case .real: .blue
         case .ai: .orange
         }
@@ -371,7 +385,7 @@ enum Answer {
 }
 
 
-struct GameRound{
+struct GameRound {
     let imageName: String
     let isAI: Bool
     let clue: String
@@ -386,7 +400,7 @@ struct GameRound{
         GameRound(imageName: "nature4", isAI: false, clue: "The person’s shirt has wrinkles and the pattern on it is consistent. Also lighting and shadow align with how the person is positioned."),
         GameRound(imageName: "nature5", isAI: true, clue: "The people are not identical in the photo and captured in candid poses. The cherry blossom trees are growing in natural and imperfect shapes.")
     ]
-    
+
     static let animals: [GameRound] = [
         GameRound(imageName: "animal1", isAI: true, clue: "The photo captures fine details such as each individual whisker, correct amount of paws and ears. The camera focuses sharply on the kitten and blurs the background. AI cannot capture these fine details easily."),
         GameRound(imageName: "animal2", isAI: false, clue: "The background captures fine details such as a shelf of threads and a person. The cat is in a candid pose with a consistent lighting, correct amount of paws and ears. AI cannot capture these fine details easily."),
@@ -394,7 +408,7 @@ struct GameRound{
         GameRound(imageName: "animal4", isAI: false, clue: "This is real because you can see the individual strands of the dog fur and their natural details such as teeth, paws, and different patterns. Also look at the man’s hand, it is positioned naturally and has exactly five fingers."),
         GameRound(imageName: "animal5", isAI: true, clue: "The chicken feathers are slightly ruffled and have two legs which are natural. The image captures fine details of the man such as hand veins and wrinkles on his clothes which AI struggles to generate.")
     ]
-    
+
     static let art: [GameRound] = [
         GameRound(imageName: "artCraft1", isAI: true, clue: "This is real because you can see the individual loops of yarn on the needle. Also the person’s fingers show wrinkles and do not look distorted. These fine details are hard for AI to correctly copy."),
         GameRound(imageName: "artCraft2", isAI: false, clue: "The bags vary in shape and size, but each pattern looks complete and not jumbled. The colours are bright and consistent which feel natural that it is a collection of bags at a market stall."),
@@ -402,7 +416,7 @@ struct GameRound{
         GameRound(imageName: "artCraft4", isAI: false, clue: "The tree branches and dots are uneven and its smudged texture makes it clear that it was painted. Other small details that make it real is the canvas being hollow at the back and texture of the person’s hair."),
         GameRound(imageName: "artCraft5", isAI: true, clue: "This is real because the photo shows an uneven texture of paint strokes and the paint palette colours align with the artwork. The photo accurately captures a person in the middle of painting.")
     ]
-    
+
     static let food: [GameRound] = [
         GameRound(imageName: "food1", isAI: true, clue: "This is real because the fold of the pasta ribbons are uneven and the sauce appears messy. The fingers on the hand are clearly visible. Lastly, the background shows how the dish was cooked at a home kitchen which makes the photo feel authentic."),
         GameRound(imageName: "food2", isAI: false, clue: "The photo shows imperfections such as each bread roll has sesame seeds randomly scattered, sizes vary, and browned parts. The lighting is a warm palette which matches how the bread is in an oven tray. These details make it real."),
