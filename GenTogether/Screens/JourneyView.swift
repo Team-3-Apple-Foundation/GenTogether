@@ -2,14 +2,24 @@
 import SwiftUI
 
 struct JourneyView: View {
-    private let challenges = GameChallenge.samples
-    
     @Environment(GameProgress.self) private var progress
-
+    @StateObject private var viewModel = JourneyViewModel()
     @State private var activeChallenge: GameChallenge?
 
-    var body:some View{
-        NavigationStack{
+    /// Maps the raw Firestore challenges into the lightweight display type
+    /// GameView/ChallengeRow use. `fetchChallenges()` sorts by category, so
+    /// this ordering — and therefore each challenge's `number` — is stable
+    /// across launches, which matters because GameProgress persists
+    /// completed challenges keyed by that number.
+    private var challenges: [GameChallenge] {
+        viewModel.challenges.enumerated().compactMap { index, challenge in
+            guard let challengeId = challenge.id else { return nil }
+            return GameChallenge(challengeId: challengeId, number: index + 1, title: challenge.category.displayName)
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
             VStack(spacing: 0) {
                 GTHeader(
                     title: "Journey",
@@ -20,43 +30,69 @@ struct JourneyView: View {
                     )
                 )
 
-                ScrollView{
-                VStack(spacing: 16){
-                    Text("Select a challenge below to play.")
-                        .font(.title3)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: .infinity)
-                        .padding(.bottom, 4)
-                    
-                    ForEach(challenges) {challenge in
-                        let status = progress.status(forChallengeNumber: challenge.number)
-                        
-                        Button {
-                            activeChallenge = challenge
-                        } label: {
-                            ChallengeRow (challenge: challenge, status: status)
+                Group {
+                    if viewModel.isLoading && viewModel.challenges.isEmpty {
+                        ProgressView("Loading challenges…")
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else if let errorMessage = viewModel.errorMessage, viewModel.challenges.isEmpty {
+                        VStack(spacing: 12) {
+                            Image(systemName: "wifi.exclamationmark")
+                                .font(.largeTitle)
+                                .foregroundStyle(.orange)
+                            Text(errorMessage)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                            Button("Try Again") {
+                                Task { await viewModel.load() }
+                            }
+                            .buttonStyle(.borderedProminent)
                         }
-                        .buttonStyle(.plain)
-                        .disabled(status == .locked)
-                        .accessibilityLabel(
-                            "Challenge \(challenge.number),  \(challenge.title). \(status.label)."
-                        )
-                        .accessibilityHint(
-                            status == .locked
-                            ? "Finish the previous challenge to unlock this one."
-                            : "Opens this challenge."
-                        )
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .padding(20)
+                    } else {
+                        ScrollView {
+                            VStack(spacing: 16) {
+                                Text("Select a challenge below to play.")
+                                    .font(.title3)
+                                    .foregroundStyle(.secondary)
+                                    .multilineTextAlignment(.center)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.bottom, 4)
+
+                                ForEach(challenges) { challenge in
+                                    let status = progress.status(forChallengeNumber: challenge.number)
+
+                                    Button {
+                                        activeChallenge = challenge
+                                    } label: {
+                                        ChallengeRow(challenge: challenge, status: status)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .disabled(status == .locked)
+                                    .accessibilityLabel(
+                                        "Challenge \(challenge.number),  \(challenge.title). \(status.label)."
+                                    )
+                                    .accessibilityHint(
+                                        status == .locked
+                                        ? "Finish the previous challenge to unlock this one."
+                                        : "Opens this challenge."
+                                    )
+                                }
+                            }
+                            .padding(20)
+                        }
+                        .background(Color(.systemGroupedBackground))
                     }
                 }
-                .padding(20)
-            }
-            .background(Color(.systemGroupedBackground))
             }
             .fullScreenCover(item: $activeChallenge) { challenge in
                 NavigationStack {
-                    GameView(challenge: challenge)
+                    GameView(challenge: challenge, allChallenges: challenges)
                 }
+            }
+            .task {
+                await viewModel.load()
             }
         }
     }
@@ -76,7 +112,7 @@ enum ChallengeStatus {
         case .locked: "Locked"
         }
     }
-    
+
     var iconName: String {
         switch self {
         case .completed: "checkmark.circle.fill"
@@ -94,26 +130,15 @@ enum ChallengeStatus {
     }
 }
 
+/// Lightweight display/navigation wrapper around a Firestore challenge.
+/// GameView fetches the actual `Challenge` (with its rounds) itself given
+/// `challengeId` — this type only carries what the Journey list and
+/// GameProgress need before that fetch happens.
 struct GameChallenge: Identifiable {
     let id = UUID()
+    let challengeId: String
     let number: Int
     let title: String
-//    let status: ChallengeStatus
-    
-    let rounds: [GameRound]
-    
-    static let samples: [GameChallenge] = [
-        GameChallenge(number: 1, title: "Nature",   rounds: GameRound.nature),
-        GameChallenge(number: 2, title: "Animals",  rounds: GameRound.animals),
-        GameChallenge(number: 3, title: "Art",      rounds: GameRound.art),
-        GameChallenge(number: 4, title: "Food",     rounds: GameRound.food),
-//        GameChallenge(number: 5, title: "Faces",  rounds: GameRound.samples),
-//        GameChallenge(number: 6, title: "Places", rounds: GameRound.samples),
-//        GameChallenge(number: 7, title: "Buildings", rounds: GameRound.samples),
-//        GameChallenge(number: 8, title: "Cars",   rounds: GameRound.samples),
-//        GameChallenge(number: 9, title: "Flowers", rounds: GameRound.samples),
-        GameChallenge(number: 10, title: "Art",     rounds: GameRound.art)
-    ]
 }
 
 struct ChallengeRow: View {
