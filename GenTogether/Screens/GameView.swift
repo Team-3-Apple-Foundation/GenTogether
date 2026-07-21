@@ -22,6 +22,9 @@ struct GameView: View {
 
     @State private var showLeaveConfirmation = false
 
+    /// The answer just given, waiting on the feedback card. `nil` = no card showing.
+    @State private var pendingResult: RoundResult?
+
     /// Held as @State so "Next challenge" can swap it without pushing a new
     /// screen — the navigation stack stays two deep and back always means Journey.
     @State private var challenge: Challenge
@@ -162,6 +165,14 @@ struct GameView: View {
         } message: {
             Text("Your progress won't be saved.")
         }
+        // Floats the instant-feedback card over the game whenever an answer
+        // is waiting to be acknowledged with Continue.
+        .overlay {
+            if let pendingResult {
+                feedbackCard(for: pendingResult)
+                    .transition(.opacity)
+            }
+        }
     }
     private func resultRow(for result: RoundResult) -> some View {
         let isExpanded = (expandedResultID == result.id)
@@ -225,7 +236,52 @@ struct GameView: View {
         .buttonStyle(.borderedProminent)
         .tint(answer.color)
     }
-    
+
+    /// The instant "Correct! / Not quite" card shown right after an answer.
+    /// The deeper 🦉 clue stays for the results screen — this is just the quick hit.
+    private func feedbackCard(for result: RoundResult) -> some View {
+        ZStack {
+            // Dims the game behind the card so attention lands on the result.
+            Color.black.opacity(0.4)
+                .ignoresSafeArea()
+
+            VStack(spacing: 20) {
+                // Right → green tick. Wrong → yellow lightbulb, framing the miss
+                // as a helpful hint rather than a failure.
+                Image(systemName: result.isCorrect ? "checkmark.circle.fill" : "lightbulb.circle.fill")
+                    .font(.system(size: 80))
+                    .foregroundStyle(result.isCorrect ? .green : .yellow)
+
+                Text(result.isCorrect ? "Correct!" : "Not Quite")
+                    .font(.title.weight(.bold))
+
+                // Right → confirm what it was. Wrong → the round's clue, so they
+                // learn what to look for next time.
+                Text(result.isCorrect
+                     ? "The image shown was \(result.round.isAI ? "AI generated" : "a real photo")."
+                     : result.round.clue)
+                    .font(.title3)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+
+                Button {
+                    continueTapped()
+                } label: {
+                    Text("Continue")
+                        .font(.title3.weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 56)
+                }
+                .buttonStyle(.borderedProminent)
+            }
+            .padding(28)
+            .background(
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .fill(Color(.systemBackground))
+            )
+            .padding(40)
+        }
+    }
+
     /// The same button either way — only the style differs, so it lives here
     /// once rather than being written out twice in the body.
     private var playAgainButton: some View {
@@ -259,13 +315,23 @@ struct GameView: View {
     }
 
     private func submit(_ answer: Answer) {
-        results.append(
-            RoundResult(number: currentIndex + 1, round: currentRound, answer: answer)
-        )
+        let result = RoundResult(number: currentIndex + 1, round: currentRound, answer: answer)
+        results.append(result)
+
+        // Don't advance yet — pop up the feedback card. Continue moves us on.
+        withAnimation(.easeInOut(duration: 0.2)) {
+            pendingResult = result
+        }
+    }
+
+    /// Dismisses the feedback card and moves to the next round. If that was the
+    /// last round, the game is over, so report the score to GameProgress.
+    private func continueTapped() {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            pendingResult = nil
+        }
         currentIndex += 1
 
-        // The last answer just landed, so the game is over. Report the score
-        // and let GameProgress decide whether it unlocks anything.
         if currentIndex == rounds.count {
             progress.recordResult(
                 challengeNumber: challenge.number,
