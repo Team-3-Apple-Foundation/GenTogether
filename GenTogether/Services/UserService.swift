@@ -81,6 +81,15 @@ final class UserService {
         }
     }
 
+    func updatePreferredCategories(userId: String, categories: [ChallengeCategory]) async throws {
+        try FirebaseEnvironment.requireConfigured()
+        do {
+            try await userDocument(userId).updateData(["preferredCategories": categories.map(\.rawValue)])
+        } catch {
+            throw UserServiceError.writeFailed(error)
+        }
+    }
+
     /// Called on sign-out to clear any in-memory user state the app holds
     /// outside Firestore (view model caches, etc.). There is no local
     /// on-disk cache today beyond Firestore's own persistence, which

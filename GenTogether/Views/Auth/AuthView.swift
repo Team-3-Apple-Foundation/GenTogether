@@ -45,6 +45,10 @@ struct AuthView: View {
                         }
                     }
                     .pickerStyle(.segmented)
+                    .onChange(of: mode) { _, _ in
+                        authViewModel.errorMessage = nil
+                        authViewModel.infoMessage = nil
+                    }
 
                     VStack(spacing: 12) {
                         if mode == .createAccount {
@@ -63,6 +67,18 @@ struct AuthView: View {
                             .textFieldStyle(.roundedBorder)
                     }
 
+                    if mode == .signIn {
+                        HStack {
+                            Spacer()
+                            Button("Forgot password?") {
+                                Task { await authViewModel.sendPasswordReset(email: email) }
+                            }
+                            .font(.callout)
+                            .foregroundStyle(.orange)
+                            .disabled(authViewModel.isLoading)
+                        }
+                    }
+
                     if let errorMessage = authViewModel.errorMessage {
                         Text(errorMessage)
                             .font(.footnote)
@@ -70,11 +86,18 @@ struct AuthView: View {
                             .multilineTextAlignment(.center)
                     }
 
+                    if let infoMessage = authViewModel.infoMessage {
+                        Text(infoMessage)
+                            .font(.footnote)
+                            .foregroundStyle(.green)
+                            .multilineTextAlignment(.center)
+                    }
+
                     Button {
                         Task { await submit() }
                     } label: {
                         Group {
-                            if authViewModel.isLoading {
+                            if authViewModel.loadingAction == .email {
                                 ProgressView()
                             } else {
                                 Text(mode.rawValue)
