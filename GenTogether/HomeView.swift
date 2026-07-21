@@ -44,13 +44,7 @@ struct HomeView: View {
     }
 
     private var header: some View {
-        Text("GenTogether")
-            .font(.title.bold())
-            .foregroundStyle(.black)
-            .frame(maxWidth: .infinity)
-            .padding(.top, 8)
-            .padding(.bottom, 20)
-            .background(GTColor.brand.ignoresSafeArea(edges: .top))
+        GTHeader(title: "GenTogether")
     }
 
     private var playButton: some View {

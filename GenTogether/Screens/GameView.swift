@@ -60,7 +60,19 @@ struct GameView: View {
     }
 
     var body: some View {
-        Group {
+        VStack(spacing: 0) {
+            GTHeader(
+                title: currentIndex < rounds.count ? "Guess it!" : "Results",
+                leading: AnyView(
+                    Button {
+                        leaveTapped()
+                    } label: {
+                        Image(systemName: "chevron.left")
+                    }
+                )
+            )
+
+            Group {
             if currentIndex < rounds.count {
                 VStack(spacing: 24) {
                     Text(challenge.title)
@@ -89,40 +101,43 @@ struct GameView: View {
                 }
                 .padding(20)
             } else {
-                ScrollView {
-                    VStack(spacing: 24) {
-                        Text("You got \(score) out of \(rounds.count)")
-                            .font(.title.weight(.bold))
+                VStack(spacing: 0) {
+                    ScrollView {
+                        VStack(spacing: 24) {
+                            VStack(spacing: 4) {
+                                Text("You got \(score) out of \(rounds.count)")
+                                    .font(.subheadline.weight(.semibold))
 
-                        Label(
-                            passed
-                            ? "Challenge complete — the next one is unlocked."
-                            : "You need \(passMark) correct to unlock the next challenge. Have another go?",
-                            systemImage: passed ? "lock.open.fill" : "arrow.clockwise"
-                        )
-                        .font(.title3)
-                        .foregroundStyle(passed ? .green : .orange)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
+                                Label(
+                                    passed
+                                    ? "Challenge complete — the next one is unlocked."
+                                    : "You need \(passMark) correct to unlock the next challenge. Have another go?",
+                                    systemImage: passed ? "lock.open.fill" : "arrow.clockwise"
+                                )
+                                .font(.footnote)
+                                .foregroundStyle(passed ? .green : .orange)
+                                .multilineTextAlignment(.center)
+                                .fixedSize(horizontal: false, vertical: true)
+                            }
 
-                        Text("Tap any round to see what gave it away.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-
-                        VStack(spacing: 8) {
-                            ForEach(results) { result in
-                                resultRow(for: result)
-                                Divider()
+                            VStack(spacing: 8) {
+                                ForEach(results) { result in
+                                    resultRow(for: result)
+                                    Divider()
+                                }
                             }
                         }
+                        .padding(20)
+                    }
 
+                    HStack(spacing: 8) {
                         if let nextChallenge {
                             Button {
                                 startGame(nextChallenge)
                             } label: {
                                 Label("Next challenge", systemImage: "arrow.right.circle.fill")
-                                    .font(.title3.weight(.semibold))
-                                    .frame(maxWidth: .infinity, minHeight: 56)
+                                    .font(.subheadline.weight(.semibold))
+                                    .frame(maxWidth: .infinity, minHeight: 44)
                             }
                             .buttonStyle(.borderedProminent)
                             .disabled(!passed)
@@ -139,24 +154,12 @@ struct GameView: View {
                             playAgainButton.buttonStyle(.borderedProminent)
                         }
                     }
-                    .padding(20)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
                 }
             }
         }
-        .navigationTitle(currentIndex < rounds.count ? "" : "Your results")
-        .navigationBarTitleDisplayMode(.inline)
-        // Hides the automatic back chevron so ours is the only way out —
-        // otherwise the system button would skip the confirmation.
         .navigationBarBackButtonHidden(true)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button {
-                    leaveTapped()
-                } label: {
-                    Label("Home", systemImage: "chevron.left")
-                }
-            }
-        }
         .confirmationDialog(
             "Leave this game?",
             isPresented: $showLeaveConfirmation,
@@ -174,6 +177,7 @@ struct GameView: View {
                 feedbackCard(for: pendingResult)
                     .transition(.opacity)
             }
+        }
         }
     }
 
@@ -215,7 +219,7 @@ struct GameView: View {
                     Image(result.round.imageName)
                         .resizable()
                         .scaledToFill()
-                        .frame(width: 140, height: 140)
+                        .frame(width: 320, height: 320)
                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                         .accessibilityLabel("Photo from round \(result.number)")
 
@@ -304,8 +308,8 @@ struct GameView: View {
             startGame(challenge)
         } label: {
             Label("Play again", systemImage: "arrow.clockwise")
-                .font(.title3.weight(.semibold))
-                .frame(maxWidth: .infinity, minHeight: 56)
+                .font(.subheadline.weight(.semibold))
+                .frame(maxWidth: .infinity, minHeight: 44)
         }
     }
 
