@@ -20,22 +20,24 @@ struct Challenge: Codable, Identifiable, Sendable {
 
 struct ChallengeRound: Codable, Identifiable, Sendable {
     var id: String
-    var isImage: Bool
     var mediaUrl: String
     var isAI: Bool
 }
 
+/// Raw values match what's actually stored in Firestore today (confirmed:
+/// animals, natures, arts, foods) — these are not display strings, see
+/// `displayName` for that.
 enum ChallengeCategory: String, CaseIterable, Codable, Sendable {
     case animals
-    case artAndCraft = "art_and_craft"
-    case nature
+    case arts
+    case natures
     case foods
 
     var displayName: String {
         switch self {
         case .animals: "Animals"
-        case .artAndCraft: "Art and Craft"
-        case .nature: "Nature"
+        case .arts: "Art and Craft"
+        case .natures: "Nature"
         case .foods: "Foods"
         }
     }
