@@ -441,10 +441,15 @@ struct GameView: View {
         }
     }
 
-    /// Firestore rounds carry no hand-authored clue text (unlike the old
-    /// hardcoded GameRound), so the explanation is generated from isAI.
+    /// Prefers the hand-written explanation from Firestore (`round.result`).
+    /// Falls back to a generic isAI-based sentence only if that field is
+    /// missing or blank, so a future round that forgets to fill it in still
+    /// shows something instead of a blank line or a crash.
     private func explanation(for round: ChallengeRound) -> String {
-        round.isAI
+        if let result = round.result?.trimmingCharacters(in: .whitespacesAndNewlines), !result.isEmpty {
+            return result
+        }
+        return round.isAI
             ? "This one was actually AI-generated — look closely next time!"
             : "This one was a real photo."
     }

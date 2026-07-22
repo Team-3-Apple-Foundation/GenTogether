@@ -17,14 +17,19 @@ struct UpgradeAccountView: View {
 
     @State private var email = ""
     @State private var password = ""
-    @State private var displayName = ""
+
+    /// The name was already collected during onboarding and saved to
+    /// users/{uid}.displayName — no need to ask for it again here.
+    @State private var profile: UserProfile?
+
+    private var displayName: String {
+        profile?.displayName ?? authViewModel.displayName ?? "Member"
+    }
 
     var body: some View {
         NavigationStack {
             Form {
                 Section("Create Your Account") {
-                    TextField("Display name", text: $displayName)
-                        .textContentType(.name)
                     TextField("Email", text: $email)
                         .textContentType(.emailAddress)
                         .keyboardType(.emailAddress)
@@ -32,23 +37,24 @@ struct UpgradeAccountView: View {
                         .autocorrectionDisabled()
                     SecureField("Password", text: $password)
                         .textContentType(.newPassword)
-
-                    Button {
-                        Task {
-                            await authViewModel.upgradeGuestAccount(email: email, password: password, displayName: displayName)
-                            if authViewModel.errorMessage == nil {
-                                dismiss()
-                            }
-                        }
-                    } label: {
-                        if authViewModel.loadingAction == .email {
-                            ProgressView().frame(maxWidth: .infinity)
-                        } else {
-                            Text("Create Account").frame(maxWidth: .infinity)
+                }
+                Button {
+                    Task {
+                        await authViewModel.upgradeGuestAccount(email: email, password: password, displayName: displayName)
+                        if authViewModel.errorMessage == nil {
+                            dismiss()
                         }
                     }
-                    .disabled(authViewModel.isLoading || email.isEmpty || password.isEmpty || displayName.isEmpty)
+                } label: {
+                    if authViewModel.loadingAction == .email {
+                        ProgressView().frame(maxWidth: .infinity)
+                    } else {
+                        Text("Create Account").frame(maxWidth: .infinity)
+                        
+                    }
                 }
+                .disabled(authViewModel.isLoading || email.isEmpty || password.isEmpty)
+                
 
                 Section {
                     GoogleSignInButton(scheme: .light, style: .wide) {
@@ -75,6 +81,10 @@ struct UpgradeAccountView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
+            }
+            .task {
+                guard let userId = authViewModel.currentUserId else { return }
+                profile = try? await UserService.shared.fetchCurrentUserProfile(userId: userId)
             }
         }
     }

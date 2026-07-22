@@ -38,6 +38,13 @@ final class ChallengeService {
     /// everything and filtering in Swift. Firestore's `in` operator allows
     /// at most 10 values — always safe here since there are only 4
     /// possible categories.
+    ///
+    /// Deliberately guarded against an empty `categories`: Firestore's
+    /// `in` operator rejects an empty value list outright, so calling this
+    /// with `[]` would fail every time, not just return no results. Callers
+    /// (see `JourneyViewModel.fetchByPreference`) already avoid calling
+    /// this with an empty array, but this guard exists so that stays true
+    /// even if a future call site forgets to check.
     func fetchChallenges(categories: [ChallengeCategory]) async throws -> [Challenge] {
         guard !categories.isEmpty else { return [] }
         try FirebaseEnvironment.requireConfigured()
