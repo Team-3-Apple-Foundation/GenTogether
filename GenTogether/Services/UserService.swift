@@ -68,13 +68,18 @@ final class UserService {
         }
     }
 
+    /// Uses `setData(merge:)` rather than `updateData` deliberately: this is
+    /// called right after onboarding (guest accounts included), and
+    /// `updateData` fails outright if `users/{userId}` doesn't exist yet —
+    /// `setData(merge:)` writes/merges either way, so this doesn't depend on
+    /// `createUserProfileIfNeeded` having already run first.
     func updateDisplayName(userId: String, displayName: String) async throws {
         guard !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw UserServiceError.invalidDisplayName
         }
         try FirebaseEnvironment.requireConfigured()
         do {
-            try await userDocument(userId).updateData(["displayName": displayName])
+            try await userDocument(userId).setData(["displayName": displayName], merge: true)
         } catch {
             throw UserServiceError.writeFailed(error)
         }

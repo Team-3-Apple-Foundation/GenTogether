@@ -56,14 +56,17 @@ final class OnboardingViewModel: ObservableObject {
     // MARK: - Dependencies
 
     private let preferenceService: PreferenceService
+    private let userService: UserService
     private let userIdProvider: @MainActor () -> String?
     private var resetCancellable: AnyCancellable?
 
     init(
         preferenceService: PreferenceService? = nil,
+        userService: UserService? = nil,
         userIdProvider: (@MainActor () -> String?)? = nil
     ) {
         self.preferenceService = preferenceService ?? .shared
+        self.userService = userService ?? .shared
         self.userIdProvider = userIdProvider ?? { AuthService.shared.currentUser?.uid }
 
         // UserService broadcasts this on sign-out so this view model — which
@@ -144,6 +147,16 @@ final class OnboardingViewModel: ObservableObject {
 
         do {
             try await preferenceService.saveOnboardingPreferences(userId: userId, preferences: preferences)
+            // Propagates the onboarding name into users/{userId}.displayName —
+            // the field ProfileView and the rest of the app actually display.
+            // Saving preferences is the primary result of onboarding, so a
+            // failure here doesn't block completion; it's surfaced but
+            // non-fatal, same as the guest-profile best-effort write.
+            do {
+                try await userService.updateDisplayName(userId: userId, displayName: preferences.name)
+            } catch {
+                errorMessage = "Saved your preferences, but couldn't save your name: \(error.localizedDescription)"
+            }
             didComplete = true
         } catch {
             errorMessage = error.localizedDescription

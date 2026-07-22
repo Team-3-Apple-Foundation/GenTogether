@@ -11,7 +11,7 @@ import SwiftUI
 
 /// The app's shared white/rounded/drop-shadowed card background — the same
 /// look InfoCard uses on Home, factored out so other cards (e.g. the
-/// Hobbies toggle list) can match it without re-declaring the styling.
+/// Interests toggle list) can match it without re-declaring the styling.
 extension View {
     func gtCardBackground(cornerRadius: CGFloat = 18) -> some View {
         self
