@@ -14,6 +14,9 @@ struct GTHeader: View {
     let title: String
     var leading: AnyView? = nil
     var trailing: AnyView? = nil
+    /// The bar's fill. Defaults to the brand orange; pass `.clear` for a
+    /// header with no coloured background.
+    var background: Color = GTColor.brand
 
     var body: some View {
         ZStack {
@@ -31,6 +34,6 @@ struct GTHeader: View {
         .padding(.horizontal, 16)
         .padding(.top, 8)
         .padding(.bottom, 20)
-        .background(GTColor.brand.ignoresSafeArea(edges: .top))
+        .background(background.ignoresSafeArea(edges: .top))
     }
 }
