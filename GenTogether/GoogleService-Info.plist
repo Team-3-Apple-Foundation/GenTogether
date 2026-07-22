@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>CLIENT_ID</key>
-	<string>728989456670-fs19glrd9bcb3g77a0gbe3i985mlp5vi.apps.googleusercontent.com</string>
+	<string>728989456670-ijslbold4sfsj1ul7psqsbgqhnqlepkb.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.728989456670-fs19glrd9bcb3g77a0gbe3i985mlp5vi</string>
+	<string>com.googleusercontent.apps.728989456670-ijslbold4sfsj1ul7psqsbgqhnqlepkb</string>
 	<key>API_KEY</key>
 	<string>AIzaSyDfTjaT5RbkRk7WRvd86hXTdj4hF-BG0RM</string>
 	<key>GCM_SENDER_ID</key>
@@ -13,7 +13,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.AppleJuice.GenTogether</string>
+	<string>com.lili.gentogether</string>
 	<key>PROJECT_ID</key>
 	<string>gentogether-8bc05</string>
 	<key>STORAGE_BUCKET</key>
@@ -29,6 +29,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:728989456670:ios:57b50f7507b93fe5cf510f</string>
+	<string>1:728989456670:ios:37fea04fb9245bb6cf510f</string>
 </dict>
 </plist>
