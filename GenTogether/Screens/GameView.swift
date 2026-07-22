@@ -241,9 +241,11 @@ struct GameView: View {
                     } label: {
                         Label("Next challenge", systemImage: "arrow.right.circle.fill")
                             .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.black)
                             .frame(maxWidth: .infinity, minHeight: 44)
                     }
                     .buttonStyle(.borderedProminent)
+                    .tint(Color(hex: "78C5EF"))
                     .disabled(!passed)
                     .accessibilityHint(
                         passed

@@ -62,20 +62,35 @@ struct GTTabBar: View {
                             .font(.caption2)
                             .fontWeight(isSelected ? .semibold : .regular)
                     }
-                    .foregroundStyle(isSelected ? Color.primary : Color.gray)
+                    .foregroundStyle(isSelected ? GTColor.brand : Color.gray)
+                    // Soft orange pill sits behind the selected tab only.
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 12)
+                    .background {
+                        if isSelected {
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .fill(GTColor.brand.opacity(0.16))
+                        }
+                    }
                     .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(isSelected ? [.isSelected] : [])
             }
         }
-        .padding(.top, 10)
-        .padding(.bottom, 8)
-        .background(alignment: .top) {
-            Color.white
-                .ignoresSafeArea(edges: .bottom)
-                .shadow(color: .black.opacity(0.06), radius: 8, x: 0, y: -3)
-        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 8)
+        // The floating capsule: rounded, with an all-around shadow.
+        .background(
+            Capsule(style: .continuous)
+                .fill(Color(.systemBackground))
+                .shadow(color: .black.opacity(0.12), radius: 14, x: 0, y: 6)
+        )
+        // Margins from the screen edges so the bar visibly floats.
+        .padding(.horizontal, 16)
+        // Negative bottom padding pushes the bar down into the home-indicator
+        // safe area for a more grounded look, while staying clear of the line.
+        .padding(.bottom, -16)
     }
 }
 

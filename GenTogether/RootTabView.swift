@@ -24,6 +24,7 @@ struct RootTabView: View {
 
             GTTabBar(selected: $selectedTab)
         }
+        .background(GTColor.background)
     }
 }
 
