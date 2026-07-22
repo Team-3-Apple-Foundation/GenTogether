@@ -3,6 +3,7 @@ import SwiftUI
 
 struct JourneyView: View {
     @Environment(GameProgress.self) private var progress
+    @EnvironmentObject private var authViewModel: AuthViewModel
     @StateObject private var viewModel = JourneyViewModel()
     @State private var activeChallenge: GameChallenge?
 
@@ -44,7 +45,7 @@ struct JourneyView: View {
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)
                             Button("Try Again") {
-                                Task { await viewModel.load() }
+                                Task { await viewModel.load(userId: authViewModel.currentUserId) }
                             }
                             .buttonStyle(.borderedProminent)
                         }
@@ -92,7 +93,7 @@ struct JourneyView: View {
                 }
             }
             .task {
-                await viewModel.load()
+                await viewModel.load(userId: authViewModel.currentUserId)
             }
         }
     }
