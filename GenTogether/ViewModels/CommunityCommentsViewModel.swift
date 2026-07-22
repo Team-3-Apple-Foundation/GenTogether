@@ -58,11 +58,28 @@ final class CommunityCommentsViewModel: ObservableObject {
         }
     }
 
+    /// Optimistic delete: removes the comment from `comments` immediately
+    /// so it disappears the instant the user taps delete, instead of
+    /// waiting on the ownership-check read + the delete write + the next
+    /// realtime snapshot to all round-trip first. Rolled back (re-inserted
+    /// at its original position) if the server call fails.
     func deleteComment(_ comment: CommunityComment, userId: String) async {
         guard let commentId = comment.id else { return }
+        errorMessage = nil
+
+        let originalIndex = comments.firstIndex(where: { $0.id == commentId })
+        if let originalIndex {
+            comments.remove(at: originalIndex)
+        }
+
         do {
             try await communityService.deleteOwnComment(postId: postId, commentId: commentId, userId: userId)
         } catch {
+            if let originalIndex, originalIndex <= comments.count {
+                comments.insert(comment, at: originalIndex)
+            } else {
+                comments.append(comment)
+            }
             errorMessage = error.localizedDescription
         }
     }
