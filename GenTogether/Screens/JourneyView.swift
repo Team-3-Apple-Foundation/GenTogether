@@ -142,19 +142,64 @@ enum ChallengeStatus {
         }
     }
 
-    var iconName: String {
+    /// Card subtitle text — kept separate from `label` (used for the
+    /// accessibility string above) since the two need slightly different
+    /// wording/punctuation on the card itself.
+    var cardSubtitle: String {
         switch self {
-        case .completed: "checkmark.circle.fill"
-        case .upNext: "star.circle.fill"
-        case .locked: "lock.circle.fill"
+        case .completed: "Completed."
+        case .upNext: "Unlocked"
+        case .locked: "Locked."
         }
     }
 
-    var color: Color {
+    var iconName: String {
         switch self {
-        case .completed: .green
-        case .upNext: .orange
-        case .locked: .gray
+        case .completed: "star.fill"
+        case .upNext: "lock.open.fill"
+        case .locked: "lock.fill"
+        }
+    }
+
+    /// The icon's circular background.
+    var iconBackground: Color {
+        switch self {
+        case .completed: GTColor.success
+        case .upNext: GTColor.brand
+        case .locked: Color(.systemGray3)
+        }
+    }
+
+    /// The icon glyph's own color, drawn on top of `iconBackground`.
+    var iconForeground: Color {
+        switch self {
+        case .completed, .upNext: .black
+        case .locked: .white
+        }
+    }
+
+    var cardBackground: Color {
+        switch self {
+        case .completed: GTColor.successSoft
+        case .upNext, .locked: Color(.systemBackground)
+        }
+    }
+
+    var borderColor: Color {
+        switch self {
+        case .completed: GTColor.success
+        case .upNext: GTColor.brand
+        case .locked: Color(.systemGray5)
+        }
+    }
+
+    /// Unlocked gets a heavier border so today's playable challenge stands
+    /// out from the merely-completed or still-locked ones.
+    var borderWidth: CGFloat {
+        switch self {
+        case .completed: 1.5
+        case .upNext: 2.5
+        case .locked: 1
         }
     }
 }
@@ -176,15 +221,21 @@ struct ChallengeRow: View {
 
     var body: some View {
         HStack(spacing: 16) {
-            Image(systemName: status.iconName)
-                .font(.largeTitle)
-                .foregroundStyle(status.color)
+            Circle()
+                .fill(status.iconBackground)
+                .frame(width: 52, height: 52)
+                .overlay(
+                    Image(systemName: status.iconName)
+                        .font(.title2.weight(.semibold))
+                        .foregroundStyle(status.iconForeground)
+                )
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Challenge \(challenge.number): \(challenge.title)")
-                    .font(.title3.weight(.semibold))
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(.black)
 
-                Text(status.label)
+                Text(status.cardSubtitle)
                     .font(.body)
                     .foregroundStyle(.secondary)
             }
@@ -195,11 +246,11 @@ struct ChallengeRow: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
+                .fill(status.cardBackground)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color.green, lineWidth: status == .upNext ? 3 : 0)
+                .stroke(status.borderColor, lineWidth: status.borderWidth)
         )
     }
 }

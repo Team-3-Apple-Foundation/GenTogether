@@ -11,50 +11,58 @@ struct CommunityView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 20) {
-                    composer
+            VStack(spacing: 0) {
+                GTHeader(title: "Community")
 
-                    if let errorMessage = viewModel.errorMessage {
-                        Text(errorMessage)
-                            .font(.footnote)
-                            .foregroundStyle(.red)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 20)
-                    }
+                ScrollView {
+                    VStack(spacing: 20) {
+                        composer
 
-                    if viewModel.isEmpty {
-                        ContentUnavailableView(
-                            "No posts yet",
-                            systemImage: "bubble.left.and.bubble.right",
-                            description: Text("Be the first to share something with the community.")
-                        )
-                        .padding(.top, 40)
-                    } else {
-                        LazyVStack(spacing: 14) {
-                            ForEach(viewModel.posts) { post in
-                                NavigationLink {
-                                    CommunityPostDetailView(post: post)
-                                } label: {
-                                    postCard(post)
-                                }
-                                .buttonStyle(.plain)
-                                .task { await viewModel.loadCommentCount(for: post) }
-                            }
+                        if let errorMessage = viewModel.errorMessage {
+                            Text(errorMessage)
+                                .font(.footnote)
+                                .foregroundStyle(.red)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 20)
                         }
-                        .padding(.horizontal, 20)
+
+                        if viewModel.isEmpty {
+                            ContentUnavailableView(
+                                "No posts yet",
+                                systemImage: "bubble.left.and.bubble.right",
+                                description: Text("Be the first to share something with the community.")
+                            )
+                            .padding(.top, 40)
+                        } else {
+                            LazyVStack(spacing: 14) {
+                                ForEach(viewModel.posts) { post in
+                                    NavigationLink {
+                                        CommunityPostDetailView(post: post)
+                                    } label: {
+                                        postCard(post)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .task { await viewModel.loadCommentCount(for: post) }
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                        }
                     }
+                    .padding(.vertical, 20)
                 }
-                .padding(.vertical, 20)
+                .background(GTColor.background)
+                .refreshable { await viewModel.load() }
+                .task { await viewModel.load() }
             }
-            .navigationTitle("Community")
-            .background(Color(.systemGroupedBackground))
-            .refreshable { await viewModel.load() }
-            .task { await viewModel.load() }
+            .background(GTColor.background)
         }
     }
 
     // MARK: Composer
+
+    private var isDraftEmpty: Bool {
+        viewModel.draftContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 
     private var composer: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -68,7 +76,7 @@ struct CommunityView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(.orange.opacity(0.5), lineWidth: 1)
+                        .stroke(GTColor.brand.opacity(0.6), lineWidth: 1)
                 )
 
             Button {
@@ -82,18 +90,18 @@ struct CommunityView: View {
             } label: {
                 Text("Post")
                     .font(.headline)
+                    .foregroundStyle(isDraftEmpty ? Color.secondary : Color.black)
                     .frame(maxWidth: .infinity, minHeight: 48)
             }
             .buttonStyle(.borderedProminent)
-            .tint(.orange)
-            .disabled(
-                !authViewModel.isAuthenticated ||
-                viewModel.draftContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            )
+            // Explicit color swap (not just relying on .disabled's automatic
+            // dimming) so "can't post yet" vs. "ready to post" reads clearly
+            // even at a glance — plain gray vs. brand orange.
+            .tint(isDraftEmpty ? Color(.systemGray5) : GTColor.brand)
+            .disabled(!authViewModel.isAuthenticated || isDraftEmpty)
         }
         .padding(16)
-        .background(.white)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .gtCardBackground()
         .padding(.horizontal, 20)
     }
 
@@ -101,16 +109,14 @@ struct CommunityView: View {
 
     private func postCard(_ post: CommunityPost) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Image(systemName: "person.crop.circle.fill")
-                    .font(.title2)
-                    .foregroundStyle(.orange)
+            HStack(spacing: 10) {
+                avatar(for: post.displayName)
                 Text(post.displayName)
-                    .font(.subheadline.weight(.semibold))
+                    .font(.subheadline.weight(.bold))
                 Spacer()
                 Text(post.createdAt, style: .relative)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(.caption2)
+                    .foregroundStyle(Color(.systemGray2))
             }
 
             Text(post.content)
@@ -119,7 +125,7 @@ struct CommunityView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
 
-            HStack(spacing: 20) {
+            HStack(spacing: 16) {
                 Button {
                     Task {
                         guard let userId = authViewModel.currentUserId else { return }
@@ -127,23 +133,66 @@ struct CommunityView: View {
                     }
                 } label: {
                     let liked = authViewModel.currentUserId.map(post.isLiked(by:)) ?? false
-                    Label("\(post.likeCount)", systemImage: liked ? "heart.fill" : "heart")
-                        .font(.subheadline)
-                        .foregroundStyle(liked ? .red : .secondary)
+                    CommunityStatBadge(
+                        icon: liked ? "heart.fill" : "heart",
+                        count: post.likeCount,
+                        tint: liked ? .red : .secondary
+                    )
                 }
                 .buttonStyle(.plain)
 
-                Label("\(viewModel.commentCounts[post.id ?? ""] ?? 0)",
-                      systemImage: "bubble.right")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                CommunityStatBadge(
+                    icon: "bubble.right",
+                    count: viewModel.commentCounts[post.id ?? ""] ?? 0,
+                    tint: .secondary
+                )
 
                 Spacer()
             }
         }
         .padding(16)
-        .background(.white)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(.systemBackground))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color(.systemGray5), lineWidth: 1)
+        )
+    }
+
+    /// Circular brand-orange avatar showing the display name's first
+    /// letter — more identifiable at a glance than a generic person icon.
+    private func avatar(for displayName: String) -> some View {
+        Circle()
+            .fill(GTColor.brand)
+            .frame(width: 36, height: 36)
+            .overlay(
+                Text(displayName.prefix(1).uppercased())
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(.white)
+            )
+    }
+
+}
+
+/// A tight icon + count pairing for a post's like/comment stats. Shared
+/// between the Community feed's post cards and a post's detail screen so
+/// both use the exact same compact layout rather than two near-identical
+/// one-off versions.
+struct CommunityStatBadge: View {
+    let icon: String
+    let count: Int
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.subheadline)
+            Text("\(count)")
+                .font(.subheadline)
+        }
+        .foregroundStyle(tint)
     }
 }
 
