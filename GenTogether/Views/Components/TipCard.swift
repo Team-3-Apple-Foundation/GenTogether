@@ -10,53 +10,56 @@ import SwiftUI
 
 struct TipCard: View {
     let tip: Tip
+    /// Only the first tip on Home shows the "Tip of the Day" heading.
+    var showsHeader: Bool = false
 
     var body: some View {
         Color.clear
             .aspectRatio(1, contentMode: .fit)
             .overlay(alignment: .top) {
-                switch tip.content {
-                case .text(let text):
-                    VStack(spacing: 12) {
-                        Image(systemName: "lightbulb.fill")
-                            .font(.system(size: 26, weight: .semibold))
-                            .foregroundStyle(GTColor.tip)
-                            .frame(width: 60, height: 60)
-                            .background(Circle().fill(GTColor.tipSoft))
-                        Text("Tip of the day!")
+                VStack(spacing: 12) {
+                    if showsHeader {
+                        Text("Tip of the Day")
                             .font(.headline)
                             .foregroundStyle(.primary)
-                        Text(text)
-                            .font(.title3)
-                            .multilineTextAlignment(.center)
-                            .foregroundStyle(.secondary)
-                            .minimumScaleFactor(0.5)
-                            .lineLimit(5)
                     }
-                    .padding(.top, 36)
-                    .padding(.horizontal, 20)
-                case .image(let name):
-                    Image(name)
-                        .resizable()
-                        .scaledToFit()
-                case .imageWithText(let name, let caption):
-                    VStack(spacing: 12) {
-                        Image(name)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(maxHeight: 200)
-                        Text(caption)
-                            .font(.title3)
-                            .multilineTextAlignment(.center)
-                            .foregroundStyle(.secondary)
-                            .minimumScaleFactor(0.5)
-                            .lineLimit(5)
-                    }
-                    .padding(.top, 36)
-                    .padding(.horizontal, 20)
+
+                    content
                 }
+                .padding(.top, 28)
+                .padding(.horizontal, 20)
             }
             .gtCardBackground()
+    }
+
+    /// The part below the "Tip of the day!" header — differs per tip kind.
+    @ViewBuilder
+    private var content: some View {
+        switch tip.content {
+        case .text(let text):
+            Text(text)
+                .font(.title3)
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.secondary)
+                .minimumScaleFactor(0.5)
+                .lineLimit(5)
+        case .image(let name):
+            Image(name)
+                .resizable()
+                .scaledToFit()
+                .frame(maxHeight: 180)
+        case .imageWithText(let name, let caption):
+            Image(name)
+                .resizable()
+                .scaledToFit()
+                .frame(maxHeight: 140)
+            Text(caption)
+                .font(.title3)
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.secondary)
+                .minimumScaleFactor(0.5)
+                .lineLimit(5)
+        }
     }
 }
 

@@ -16,15 +16,17 @@ struct HomeView: View {
             header
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 12) {
                     Text("Learn to identify Generative AI!")
                         .font(.title2.bold())
                         .foregroundStyle(.primary)
-                        .padding(.top, 20)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .multilineTextAlignment(.center)
+                        .padding(.top, 8)
 
                     TabView {
-                        ForEach(Tip.samples) { tip in
-                            TipCard(tip: tip)
+                        ForEach(Array(Tip.samples.enumerated()), id: \.element.id) { index, tip in
+                            TipCard(tip: tip, showsHeader: index == 0)
                         }
                     }
                     .tabViewStyle(.page(indexDisplayMode: .always))
@@ -34,10 +36,8 @@ struct HomeView: View {
                         UIPageControl.appearance().pageIndicatorTintColor = UIColor.black.withAlphaComponent(0.25)
                     }
 
-                    Spacer(minLength: 12)
-
-                    playButton
                     tutorialButton
+                    playButton
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 24)

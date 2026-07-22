@@ -16,15 +16,15 @@ struct TutorialSlide: View {
         Step(number: 1,
              title: "Analyze",
              description: "Analyze the image or video that is shown to you.",
-             mascotAsset: "mascot_analyze"),
+             mascotAsset: "mascots_16"),
         Step(number: 2,
              title: "Identify",
              description: "Tap if you think it is real or AI. You can also swipe.",
-             mascotAsset: "mascot_identify"),
+             mascotAsset: "mascots_18"),
         Step(number: 3,
              title: "Learn",
              description: "Get instant feedback and helpful tips to better spot Generative AI.",
-             mascotAsset: "mascot_learn")
+             mascotAsset: "mascots_17")
     ]
 
     var body: some View {
@@ -109,7 +109,7 @@ struct TutorialSlide: View {
                     .foregroundStyle(GTColor.tip)
             }
         }
-        .frame(maxWidth: 240, maxHeight: 240)
+        .frame(maxWidth: 300, maxHeight: 300)
     }
 
     private func placeholderSymbol(_ index: Int) -> String {
