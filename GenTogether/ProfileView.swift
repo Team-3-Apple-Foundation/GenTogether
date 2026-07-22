@@ -28,10 +28,10 @@ struct ProfileView: View {
 
                 Section {
                     NavigationLink {
-                        HobbiesPreferenceView()
+                        InterestsPreferenceView()
                     } label: {
                         HStack {
-                            Text("Hobbies")
+                            Text("Interests")
                             Spacer()
                             Text("Change")
                                 .foregroundStyle(.secondary)

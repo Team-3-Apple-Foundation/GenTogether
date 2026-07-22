@@ -1,8 +1,8 @@
 //
-//  HobbiesPreferenceViewModel.swift
+//  InterestsPreferenceViewModel.swift
 //  GenTogether
 //
-//  Backs HobbiesPreferenceView: loads users/{userId}.preferredCategories
+//  Backs InterestsPreferenceView: loads users/{userId}.preferredCategories
 //  and writes it back immediately on every toggle change — no Save button,
 //  matching the design reference.
 //
@@ -11,7 +11,7 @@ import Foundation
 import Combine
 
 @MainActor
-final class HobbiesPreferenceViewModel: ObservableObject {
+final class InterestsPreferenceViewModel: ObservableObject {
     @Published private(set) var selectedCategories: Set<ChallengeCategory> = []
     @Published var isLoading = false
     @Published var errorMessage: String?
@@ -30,9 +30,9 @@ final class HobbiesPreferenceViewModel: ObservableObject {
         do {
             let profile = try await userService.fetchCurrentUserProfile(userId: userId)
             #if DEBUG
-            print("[DIAG][Hobbies] loading for uid: \(userId)")
-            print("[DIAG][Hobbies] path: users/\(userId), field: preferredCategories")
-            print("[DIAG][Hobbies] preferredCategories raw value: \(String(describing: profile?.preferredCategories))")
+            print("[DIAG][Interests] loading for uid: \(userId)")
+            print("[DIAG][Interests] path: users/\(userId), field: preferredCategories")
+            print("[DIAG][Interests] preferredCategories raw value: \(String(describing: profile?.preferredCategories))")
             #endif
             selectedCategories = Set(profile?.preferredCategories ?? [])
         } catch {
@@ -44,9 +44,24 @@ final class HobbiesPreferenceViewModel: ObservableObject {
         selectedCategories.contains(category)
     }
 
+    /// True once only one category remains selected — the UI disables that
+    /// category's toggle so it can't be turned off, since an empty
+    /// `preferredCategories` is a semantically broken "no interests" state
+    /// (not "show everything"), even though the read path tolerates it.
+    func isOnlyRemaining(_ category: ChallengeCategory) -> Bool {
+        selectedCategories == [category]
+    }
+
     /// Updates local state immediately (so the toggle never visually
-    /// reverts) and fires the Firestore write in the background.
+    /// reverts) and fires the Firestore write in the background. Refuses to
+    /// drop the last remaining category — this mirrors the `.disabled`
+    /// toggle in the view, but is enforced here too so this method stays
+    /// safe to call from anywhere, not just that one toggle.
     func setCategory(_ category: ChallengeCategory, isOn: Bool, userId: String?) {
+        if !isOn && isOnlyRemaining(category) {
+            errorMessage = "At least one interest must stay selected."
+            return
+        }
         if isOn {
             selectedCategories.insert(category)
         } else {

@@ -9,11 +9,11 @@
 //  GameProgress instead (see completedChallengeIds below).
 //
 //  Loading happens in two parts, then one merge:
-//   1. Challenges in whichever categories the user picked on the Hobbies
+//   1. Challenges in whichever categories the user picked on the Interests
 //      screen (`ChallengeService.fetchChallenges(categories:)`, a
 //      server-side `whereField("category", in:)` query).
 //   2. Any already-*completed* challenges that fall outside those
-//      categories — so turning a category off in Hobbies never makes a
+//      categories — so turning a category off in Interests never makes a
 //      challenge the player already passed disappear from their list.
 //  The merged set is then cross-category interleaved (one challenge per
 //  category in turn, e.g. animals1, artAndCraft1, foods1, nature1,
@@ -26,7 +26,7 @@
 //  Because this whole two-part load re-runs from scratch every time
 //  `load(userId:completedChallengeIds:)` is called, and RootTabView
 //  recreates JourneyView (and this view model) fresh each time the
-//  Journey tab is selected, coming back from Hobbies re-triggers both
+//  Journey tab is selected, coming back from Interests re-triggers both
 //  parts — not just the category filter — automatically.
 //
 
@@ -55,7 +55,7 @@ final class JourneyViewModel: ObservableObject {
 
     /// - Parameter completedChallengeIds: from `GameProgress`, so a
     ///   challenge the player already passed stays visible even after its
-    ///   category is turned off in Hobbies.
+    ///   category is turned off in Interests.
     func load(userId: String?, completedChallengeIds: Set<String>) async {
         isLoading = true
         errorMessage = nil
@@ -80,7 +80,10 @@ final class JourneyViewModel: ObservableObject {
 
     /// Part 1: challenges in the user's picked categories. Falls back to
     /// every challenge when nothing's been picked yet (new account, or
-    /// Hobbies never touched), matching `interleaved`'s own fallback.
+    /// Interests never touched) — this same fallback is also what keeps an
+    /// empty `preferredCategories` (however that happens) from ever
+    /// reaching `fetchChallenges(categories:)`, which would otherwise build
+    /// a `whereField("category", in: [])` query that Firestore rejects.
     private func fetchByPreference(categories: [ChallengeCategory]?) async throws -> [Challenge] {
         guard let categories, !categories.isEmpty else {
             return try await challengeService.fetchChallenges()

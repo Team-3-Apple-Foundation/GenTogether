@@ -1,5 +1,5 @@
 //
-//  HobbiesPreferenceView.swift
+//  InterestsPreferenceView.swift
 //  GenTogether
 //
 //  Reached by pushing from ProfileView's "Change" row. Lets the user
@@ -11,9 +11,9 @@
 
 import SwiftUI
 
-struct HobbiesPreferenceView: View {
+struct InterestsPreferenceView: View {
     @EnvironmentObject private var authViewModel: AuthViewModel
-    @StateObject private var viewModel = HobbiesPreferenceViewModel()
+    @StateObject private var viewModel = InterestsPreferenceViewModel()
 
     var body: some View {
         ScrollView {
@@ -43,7 +43,7 @@ struct HobbiesPreferenceView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Hobbies")
+            Text("Interests")
                 .font(.title.bold())
             Text("You can change anytime")
                 .font(.subheadline)
@@ -66,7 +66,9 @@ struct HobbiesPreferenceView: View {
     }
 
     private func toggleRow(for category: ChallengeCategory) -> some View {
-        Toggle(isOn: Binding(
+        let isOnlyRemaining = viewModel.isOnlyRemaining(category)
+
+        return Toggle(isOn: Binding(
             get: { viewModel.isSelected(category) },
             set: { viewModel.setCategory(category, isOn: $0, userId: authViewModel.currentUserId) }
         )) {
@@ -75,12 +77,14 @@ struct HobbiesPreferenceView: View {
         }
         .tint(GTColor.brand)
         .padding(.vertical, 12)
+        .disabled(isOnlyRemaining)
+        .accessibilityHint(isOnlyRemaining ? "At least one interest must stay selected." : "")
     }
 }
 
 #Preview {
     NavigationStack {
-        HobbiesPreferenceView()
+        InterestsPreferenceView()
             .environmentObject(AuthViewModel())
     }
 }
