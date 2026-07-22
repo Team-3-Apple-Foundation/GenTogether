@@ -52,7 +52,7 @@ struct JourneyView: View {
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)
                             Button("Try Again") {
-                                Task { await viewModel.load(userId: authViewModel.currentUserId) }
+                                Task { await viewModel.load(userId: authViewModel.currentUserId, completedChallengeIds: progress.completedChallengeIds) }
                             }
                             .buttonStyle(.borderedProminent)
                         }
@@ -68,8 +68,9 @@ struct JourneyView: View {
                                     .frame(maxWidth: .infinity)
                                     .padding(.bottom, 4)
 
+                                let orderedIds = challenges.map(\.challengeId)
                                 ForEach(challenges) { challenge in
-                                    let status = progress.status(forChallengeNumber: challenge.number)
+                                    let status = progress.status(for: challenge.challengeId, in: orderedIds)
 
                                     Button {
                                         pendingChallenge = challenge
@@ -120,7 +121,7 @@ struct JourneyView: View {
                 .presentationDetents([.height(260)])
             }
             .task {
-                await viewModel.load(userId: authViewModel.currentUserId)
+                await viewModel.load(userId: authViewModel.currentUserId, completedChallengeIds: progress.completedChallengeIds)
             }
         }
     }

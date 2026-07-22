@@ -2,20 +2,32 @@
 //  JourneyViewModel.swift
 //  GenTogether
 //
-//  Loads all challenges for the Journey screen. There's no per-user
-//  progress tracking wired up for the challenges/rounds schema yet (the
-//  old locked/unlocked/stars system was tied to the retired
-//  challenges/questions schema) — every challenge is simply listed and
-//  playable.
+//  Loads all challenges for the Journey screen. There's no server-synced
+//  per-user progress tracking wired up for the challenges/rounds schema
+//  yet (the old locked/unlocked/stars system was tied to the retired
+//  challenges/questions schema) — completion is tracked locally by
+//  GameProgress instead (see completedChallengeIds below).
 //
-//  `challenges` is also cross-category interleaved (one challenge per
+//  Loading happens in two parts, then one merge:
+//   1. Challenges in whichever categories the user picked on the Hobbies
+//      screen (`ChallengeService.fetchChallenges(categories:)`, a
+//      server-side `whereField("category", in:)` query).
+//   2. Any already-*completed* challenges that fall outside those
+//      categories — so turning a category off in Hobbies never makes a
+//      challenge the player already passed disappear from their list.
+//  The merged set is then cross-category interleaved (one challenge per
 //  category in turn, e.g. animals1, artAndCraft1, foods1, nature1,
-//  animals2, ...) instead of the plain per-category grouping
-//  `ChallengeService.fetchChallenges()` returns, so the Journey list
-//  doesn't run through every challenge in one category before moving to
-//  the next. JourneyView builds both the on-screen list order and
-//  GameView's "next challenge" order from this same published array, so
-//  fixing the order here fixes it in both places at once.
+//  animals2, ...) instead of running through every challenge in one
+//  category before moving to the next. JourneyView builds both the
+//  on-screen list order and GameView's "next challenge" order from this
+//  same published array, so fixing the order here fixes it in both
+//  places at once.
+//
+//  Because this whole two-part load re-runs from scratch every time
+//  `load(userId:completedChallengeIds:)` is called, and RootTabView
+//  recreates JourneyView (and this view model) fresh each time the
+//  Journey tab is selected, coming back from Hobbies re-triggers both
+//  parts — not just the category filter — automatically.
 //
 
 import Foundation
@@ -41,14 +53,21 @@ final class JourneyViewModel: ObservableObject {
 
     var isEmpty: Bool { !isLoading && challenges.isEmpty }
 
-    func load(userId: String?) async {
+    /// - Parameter completedChallengeIds: from `GameProgress`, so a
+    ///   challenge the player already passed stays visible even after its
+    ///   category is turned off in Hobbies.
+    func load(userId: String?, completedChallengeIds: Set<String>) async {
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
         do {
-            let fetched = try await challengeService.fetchChallenges()
             let preferredCategories = try await preferredCategories(for: userId)
-            challenges = Self.interleaved(fetched, preferredCategories: preferredCategories)
+            let byPreference = try await fetchByPreference(categories: preferredCategories)
+            let stillCompleted = await completedChallengesOutsidePreferences(
+                already: byPreference,
+                completedChallengeIds: completedChallengeIds
+            )
+            challenges = Self.interleaved(byPreference + stillCompleted)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -59,32 +78,58 @@ final class JourneyViewModel: ObservableObject {
         return try await userService.fetchCurrentUserProfile(userId: userId)?.preferredCategories
     }
 
+    /// Part 1: challenges in the user's picked categories. Falls back to
+    /// every challenge when nothing's been picked yet (new account, or
+    /// Hobbies never touched), matching `interleaved`'s own fallback.
+    private func fetchByPreference(categories: [ChallengeCategory]?) async throws -> [Challenge] {
+        guard let categories, !categories.isEmpty else {
+            return try await challengeService.fetchChallenges()
+        }
+        return try await challengeService.fetchChallenges(categories: categories)
+    }
+
+    /// Part 2: fetches, one at a time, any completed challenge that Part 1
+    /// didn't already return (i.e. its category is no longer preferred).
+    /// A completed id whose document no longer exists (or fails to load)
+    /// is skipped rather than failing the whole screen — it just won't
+    /// reappear in the list.
+    private func completedChallengesOutsidePreferences(
+        already fetched: [Challenge],
+        completedChallengeIds: Set<String>
+    ) async -> [Challenge] {
+        let fetchedIds = Set(fetched.compactMap(\.id))
+        let missingIds = completedChallengeIds.subtracting(fetchedIds)
+        guard !missingIds.isEmpty else { return [] }
+
+        var extra: [Challenge] = []
+        for id in missingIds {
+            if let challenge = try? await challengeService.fetchChallenge(id: id) {
+                extra.append(challenge)
+            }
+        }
+        return extra
+    }
+
     /// Reorders `fetched` into cross-category round robin: one challenge
-    /// from each active category in `categoryOrder`, in turn, repeating
-    /// until every challenge has been placed.
+    /// from each category present in `fetched`, cycled in `categoryOrder`,
+    /// repeating until every challenge has been placed.
     ///
-    /// - "Active" categories are whichever of `preferredCategories` the
-    ///   user actually picked on the Hobbies screen — categories they
-    ///   didn't pick are skipped entirely, not just deprioritized. If
-    ///   `preferredCategories` is nil/empty (Hobbies never touched yet),
-    ///   every category present in `fetched` is active instead, so the
-    ///   list still shows something.
+    /// - "Active" categories are simply whichever categories `fetched`
+    ///   actually contains — the caller (`load`) has already done all the
+    ///   category *selection* (preference filtering plus merging back in
+    ///   any completed-but-deselected challenges), so this only has to
+    ///   decide the order, never which categories belong.
     /// - Once a category runs out, it's dropped from the rotation and the
     ///   remaining active categories keep alternating.
     /// - Order *within* a category is left exactly as `fetched` had it —
     ///   Firestore's own order, no extra sort field needed.
-    private static func interleaved(_ fetched: [Challenge], preferredCategories: [ChallengeCategory]?) -> [Challenge] {
+    private static func interleaved(_ fetched: [Challenge]) -> [Challenge] {
         var byCategory: [ChallengeCategory: [Challenge]] = [:]
         for challenge in fetched {
             byCategory[challenge.category, default: []].append(challenge)
         }
 
-        let activeCategories: [ChallengeCategory]
-        if let preferredCategories, !preferredCategories.isEmpty {
-            activeCategories = categoryOrder.filter { preferredCategories.contains($0) }
-        } else {
-            activeCategories = categoryOrder.filter { byCategory[$0] != nil }
-        }
+        let activeCategories = categoryOrder.filter { byCategory[$0] != nil }
 
         var cursors: [ChallengeCategory: Int] = [:]
         var result: [Challenge] = []

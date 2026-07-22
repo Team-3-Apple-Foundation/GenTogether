@@ -452,7 +452,7 @@ struct GameView: View {
 
         if currentIndex == rounds.count {
             progress.recordResult(
-                challengeNumber: challenge.number,
+                challengeId: challenge.challengeId,
                 score: score,
                 outOf: rounds.count
             )

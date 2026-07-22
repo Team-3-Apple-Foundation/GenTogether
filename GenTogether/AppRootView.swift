@@ -32,7 +32,8 @@ struct AppRootView: View {
         }
         .environmentObject(authViewModel)
         .environment(gameProgress)
-        .onChange(of: authViewModel.currentUserId) { _, _ in
+        .onChange(of: authViewModel.currentUserId, initial: true) { _, newUserId in
+            gameProgress.setCurrentUser(newUserId)
             hasCheckedOnboarding = false
         }
     }
