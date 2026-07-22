@@ -11,7 +11,6 @@ struct TutorialSlide: View {
     var onStartGame: () -> Void = {}
 
     @State private var step = 0
-    @State private var mascotVisible = false
 
     private let steps: [Step] = [
         Step(number: 1,
@@ -28,101 +27,93 @@ struct TutorialSlide: View {
              mascotAsset: "mascot_learn")
     ]
 
-    private var current: Step { steps[step] }
-    private var isLast: Bool { step == steps.count - 1 }
-
     var body: some View {
         VStack(spacing: 0) {
             header
 
-            ScrollView {
-                VStack(spacing: 28) {
-                    // Step text at top
-                    VStack(spacing: 12) {
-                        Text("\(current.number). \(current.title)")
-                            .font(.system(size: 30, weight: .bold))
-                            .foregroundStyle(.black)
-
-                        Text(current.description)
-                            .font(.system(size: 19))
-                            .foregroundStyle(.black.opacity(0.75))
-                            .multilineTextAlignment(.center)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .padding(.horizontal, 32)
-                    }
-                    .padding(.top, 32)
-                    // Slide the text block down-in on each step change
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                    .id("text-\(step)")   // forces a fresh transition per step
-
-                    // Mascot below, animating in
-                    mascot
-                        .padding(.top, 8)
+            // Swipeable pager: one page per step, with page dots underneath.
+            TabView(selection: $step) {
+                ForEach(Array(steps.enumerated()), id: \.offset) { index, item in
+                    page(for: item, index: index)
+                        .tag(index)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.bottom, 24)
             }
+            .tabViewStyle(.page(indexDisplayMode: .always))
 
             footer
         }
-        .background(Palette.screen)
+        .background(GTColor.background)
         .navigationBarBackButtonHidden(true)
-        .onAppear { animateMascotIn() }
+        .toolbar(.hidden, for: .navigationBar)
     }
 
     // MARK: - Header
 
     private var header: some View {
-        ZStack {
-            Text("Tutorial")
-                .font(.system(size: 30, weight: .bold))
-                .foregroundStyle(.black)
-
-            HStack {
+        GTHeader(
+            title: "Tutorial",
+            leading: AnyView(
                 Button {
                     dismiss()
                 } label: {
-                    Image(systemName: "arrow.left")
-                        .font(.system(size: 22, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 56, height: 56)
-                        .background(.black)
-                        .clipShape(Circle())
+                    Image(systemName: "chevron.left")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(.black)
+                        .frame(width: 40, height: 40)
+                        .background(Circle().fill(Color(.systemGray5)))
                 }
                 .accessibilityLabel("Go back")
-                Spacer()
+            )
+        )
+    }
+
+    // MARK: - Page
+
+    private func page(for item: Step, index: Int) -> some View {
+        VStack(spacing: 28) {
+            VStack(spacing: 12) {
+                Text("\(item.number). \(item.title)")
+                    .font(.system(size: 30, weight: .bold))
+                    .foregroundStyle(.black)
+
+                Text(item.description)
+                    .font(.system(size: 19))
+                    .foregroundStyle(.black.opacity(0.75))
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 32)
             }
+            .padding(.top, 32)
+
+            mascot(for: item, index: index)
+                .padding(.top, 8)
+
+            Spacer(minLength: 0)
         }
-        .padding(.horizontal, 20)
-        .padding(.bottom, 16)
-        .background(Palette.tan)
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Mascot
 
-    private var mascot: some View {
-        // Swap Image(current.mascotAsset) for your real assets. Until they're
-        // in Assets.xcassets, this falls back to an SF Symbol so it still
-        // builds and animates.
+    private func mascot(for item: Step, index: Int) -> some View {
+        // Swap in your real assets named in `Step.mascotAsset`. Until they're
+        // in Assets.xcassets, this falls back to an SF Symbol so it still builds.
         Group {
-            if UIImage(named: current.mascotAsset) != nil {
-                Image(current.mascotAsset)
+            if UIImage(named: item.mascotAsset) != nil {
+                Image(item.mascotAsset)
                     .resizable()
                     .scaledToFit()
             } else {
-                Image(systemName: placeholderSymbol)
+                Image(systemName: placeholderSymbol(index))
                     .font(.system(size: 120, weight: .light))
-                    .foregroundStyle(Palette.iconYellow)
+                    .foregroundStyle(GTColor.tip)
             }
         }
         .frame(maxWidth: 240, maxHeight: 240)
-        .scaleEffect(mascotVisible ? 1 : 0.6)
-        .opacity(mascotVisible ? 1 : 0)
-        .id("mascot-\(step)")
     }
 
-    private var placeholderSymbol: String {
-        switch step {
+    private func placeholderSymbol(_ index: Int) -> String {
+        switch index {
         case 0:  return "magnifyingglass"
         case 1:  return "hand.point.up.left"
         default: return "lightbulb"
@@ -132,37 +123,18 @@ struct TutorialSlide: View {
     // MARK: - Footer
 
     private var footer: some View {
-        Button(action: advance) {
-            Text(isLast ? "Start game" : "Continue")
+        Button {
+            onStartGame()
+        } label: {
+            Text("Start game")
                 .font(.system(size: 24, weight: .bold))
                 .foregroundStyle(.black)
                 .frame(maxWidth: .infinity, minHeight: 66)
-                .background(Palette.tan)
+                .background(GTColor.brand)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
         }
         .padding(.horizontal, 20)
         .padding(.bottom, 12)
-    }
-
-    // MARK: - Logic
-
-    private func advance() {
-        if isLast {
-            onStartGame()
-            return
-        }
-        mascotVisible = false
-        withAnimation(.easeInOut(duration: 0.3)) {
-            step += 1
-        }
-        animateMascotIn()
-    }
-
-    private func animateMascotIn() {
-        mascotVisible = false
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.6).delay(0.15)) {
-            mascotVisible = true
-        }
     }
 
     // MARK: - Model
@@ -174,13 +146,6 @@ struct TutorialSlide: View {
         let mascotAsset: String
     }
 
-    // MARK: - Colors
-
-    private enum Palette {
-        static let tan        = Color(red: 0.84, green: 0.72, blue: 0.57)
-        static let screen     = Color(red: 0.96, green: 0.96, blue: 0.96)
-        static let iconYellow = Color(red: 0.98, green: 0.80, blue: 0.42)
-    }
 }
 
 #Preview {
