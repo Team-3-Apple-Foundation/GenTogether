@@ -8,6 +8,8 @@ import SwiftUI
 struct CommunityView: View {
     @StateObject private var viewModel = CommunityViewModel()
     @EnvironmentObject private var authViewModel: AuthViewModel
+    @FocusState private var isComposerFocused: Bool
+    @State private var pendingDeletePost: CommunityPost?
 
     var body: some View {
         NavigationStack {
@@ -43,6 +45,16 @@ struct CommunityView: View {
                                     }
                                     .buttonStyle(.plain)
                                     .task { await viewModel.loadCommentCount(for: post) }
+                                    // Long-press to delete — only attached at
+                                    // all when this post is the signed-in
+                                    // user's own, so someone else's post
+                                    // shows no delete option whatsoever.
+                                    .modifier(
+                                        OwnPostDeleteMenu(
+                                            isOwnPost: post.userId == authViewModel.currentUserId,
+                                            onDelete: { pendingDeletePost = post }
+                                        )
+                                    )
                                 }
                             }
                             .padding(.horizontal, 20)
@@ -55,6 +67,26 @@ struct CommunityView: View {
                 .task { await viewModel.load() }
             }
             .background(GTColor.background)
+            .confirmationDialog(
+                "Delete this post?",
+                isPresented: Binding(
+                    get: { pendingDeletePost != nil },
+                    set: { isPresented in if !isPresented { pendingDeletePost = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("Delete", role: .destructive) {
+                    if let post = pendingDeletePost, let userId = authViewModel.currentUserId {
+                        Task { await viewModel.deletePost(post, userId: userId) }
+                    }
+                    pendingDeletePost = nil
+                }
+                Button("Cancel", role: .cancel) {
+                    pendingDeletePost = nil
+                }
+            } message: {
+                Text("This can't be undone.")
+            }
         }
     }
 
@@ -78,6 +110,7 @@ struct CommunityView: View {
                     RoundedRectangle(cornerRadius: 12)
                         .stroke(GTColor.brand.opacity(0.6), lineWidth: 1)
                 )
+                .focused($isComposerFocused)
 
             Button {
                 Task {
@@ -86,6 +119,12 @@ struct CommunityView: View {
                         userId: userId,
                         displayName: authViewModel.displayName ?? "Member"
                     )
+                    // Only dismiss the keyboard once the post actually went
+                    // through — a failed post leaves the draft (and focus)
+                    // in place so the user doesn't lose what they typed.
+                    if viewModel.errorMessage == nil {
+                        isComposerFocused = false
+                    }
                 }
             } label: {
                 Text("Post")
@@ -174,6 +213,26 @@ struct CommunityView: View {
             )
     }
 
+}
+
+/// Attaches a long-press "Delete Post" context menu only when `isOwnPost`
+/// is true — someone else's post gets no context menu at all, rather than
+/// an empty one, so long-pressing it visibly does nothing.
+private struct OwnPostDeleteMenu: ViewModifier {
+    let isOwnPost: Bool
+    let onDelete: () -> Void
+
+    func body(content: Content) -> some View {
+        if isOwnPost {
+            content.contextMenu {
+                Button(role: .destructive, action: onDelete) {
+                    Label("Delete Post", systemImage: "trash")
+                }
+            }
+        } else {
+            content
+        }
+    }
 }
 
 /// A tight icon + count pairing for a post's like/comment stats. Shared
