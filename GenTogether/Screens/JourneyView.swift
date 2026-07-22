@@ -7,6 +7,13 @@ struct JourneyView: View {
     @StateObject private var viewModel = JourneyViewModel()
     @State private var activeChallenge: GameChallenge?
 
+    /// The challenge tapped but not yet confirmed — drives the bottom sheet.
+    @State private var pendingChallenge: GameChallenge?
+
+    /// Remembered across the sheet's dismissal so we launch the game only
+    /// after the sheet has fully closed (avoids two pop-ups fighting).
+    @State private var challengeToLaunch: GameChallenge?
+
     /// Maps the raw Firestore challenges into the lightweight display type
     /// GameView/ChallengeRow use. `fetchChallenges()` sorts by category, so
     /// this ordering — and therefore each challenge's `number` — is stable
@@ -65,7 +72,7 @@ struct JourneyView: View {
                                     let status = progress.status(forChallengeNumber: challenge.number)
 
                                     Button {
-                                        activeChallenge = challenge
+                                        pendingChallenge = challenge
                                     } label: {
                                         ChallengeRow(challenge: challenge, status: status)
                                     }
@@ -91,6 +98,26 @@ struct JourneyView: View {
                 NavigationStack {
                     GameView(challenge: challenge, allChallenges: challenges)
                 }
+            }
+            .sheet(item: $pendingChallenge, onDismiss: {
+                // Runs after the sheet has fully closed. If the player tapped
+                // Play, this is where we actually launch the game.
+                if let challengeToLaunch {
+                    activeChallenge = challengeToLaunch
+                    self.challengeToLaunch = nil
+                }
+            }) { challenge in
+                ChallengeConfirmationSheet(
+                    challenge: challenge,
+                    onPlay: {
+                        challengeToLaunch = challenge
+                        pendingChallenge = nil
+                    },
+                    onCancel: {
+                        pendingChallenge = nil
+                    }
+                )
+                .presentationDetents([.height(260)])
             }
             .task {
                 await viewModel.load(userId: authViewModel.currentUserId)
@@ -173,6 +200,41 @@ struct ChallengeRow: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(Color.green, lineWidth: status == .upNext ? 3 : 0)
         )
+    }
+}
+
+/// The bottom sheet that slides up when a challenge is tapped, asking the
+/// player to confirm before the game begins.
+struct ChallengeConfirmationSheet: View {
+    let challenge: GameChallenge
+    let onPlay: () -> Void
+    let onCancel: () -> Void
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("Challenge \(challenge.number): \(challenge.title)")
+                .font(.title2.weight(.bold))
+                .multilineTextAlignment(.center)
+
+            Text("Ready to play this challenge?")
+                .font(.body)
+                .foregroundStyle(.secondary)
+
+            Button(action: onPlay) {
+                Text("Play")
+                    .font(.headline)
+                    .foregroundStyle(.black)
+                    .frame(maxWidth: .infinity, minHeight: 50)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(GTColor.brand)
+
+            Button("Not now", action: onCancel)
+                .font(.body)
+                .foregroundStyle(.secondary)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity)
     }
 }
 

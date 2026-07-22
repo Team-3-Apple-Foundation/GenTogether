@@ -76,8 +76,13 @@ struct GameView: View {
                         leaveTapped()
                     } label: {
                         Image(systemName: "chevron.left")
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(.black)
+                            .frame(width: 40, height: 40)
+                            .background(Circle().fill(Color(.systemGray5)))
                     }
-                )
+                ),
+                background: currentIndex < rounds.count ? .clear : GTColor.brand
             )
 
             Group {
@@ -94,7 +99,6 @@ struct GameView: View {
             }
         }
         .navigationBarBackButtonHidden(true)
-        .toolbar(.hidden, for: .navigationBar)
         .confirmationDialog(
             "Leave this game?",
             isPresented: $showLeaveConfirmation,
@@ -206,7 +210,7 @@ struct GameView: View {
                 VStack(spacing: 24) {
                     VStack(spacing: 4) {
                         Text("You got \(score) out of \(rounds.count)")
-                            .font(.subheadline.weight(.semibold))
+                            .font(.title2.weight(.bold))
 
                         Label(
                             passed
@@ -214,7 +218,7 @@ struct GameView: View {
                             : "You need \(passMark) correct to unlock the next challenge. Have another go?",
                             systemImage: passed ? "lock.open.fill" : "arrow.clockwise"
                         )
-                        .font(.footnote)
+                        .font(.title3)
                         .foregroundStyle(passed ? .green : .orange)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
