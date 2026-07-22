@@ -22,6 +22,10 @@ struct ChallengeRound: Codable, Identifiable, Sendable {
     var id: String
     var mediaUrl: String
     var isAI: Bool
+    /// Hand-written explanation of why this round is real/AI-generated,
+    /// shown on the results screen. Optional — decoding must not fail if an
+    /// older or incomplete document is missing it.
+    var result: String?
 }
 
 /// Raw values match what's actually stored in Firestore today (confirmed:
