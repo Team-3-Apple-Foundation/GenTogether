@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Support — GenTogether</title>
+<style>
+  :root {
+    --cream: #F6F2EC;
+    --header-tan: #D8AE86;
+    --header-tan-deep: #C99A6C;
+    --ink: #2B2420;
+    --ink-soft: #6B6357;
+    --accent: #B8703F;
+    --card: #FFFFFF;
+    --line: #E7DFD3;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--cream);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.65;
+  }
+  header {
+    background: linear-gradient(180deg, var(--header-tan) 0%, var(--header-tan-deep) 100%);
+    padding: 56px 24px 40px;
+    text-align: center;
+  }
+  header h1 {
+    margin: 0 0 8px;
+    font-size: clamp(28px, 5vw, 40px);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #241C14;
+  }
+  header p {
+    margin: 0;
+    color: #3A2E1F;
+    font-size: 15px;
+    opacity: 0.85;
+  }
+  nav {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 18px 24px 0;
+    display: flex;
+    gap: 20px;
+    font-size: 14px;
+  }
+  nav a {
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 600;
+  }
+  nav a:hover { text-decoration: underline; }
+  main {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 24px 24px 80px;
+  }
+  h2 {
+    font-size: 20px;
+    font-weight: 800;
+    margin: 40px 0 12px;
+    letter-spacing: -0.01em;
+  }
+  h2:first-of-type { margin-top: 24px; }
+  p, li { color: var(--ink); font-size: 16px; }
+  ul { padding-left: 20px; }
+  li { margin-bottom: 8px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 24px 28px;
+    margin-top: 24px;
+  }
+  a { color: var(--accent); }
+  .placeholder {
+    background: #FBEFE2;
+    border: 1px dashed var(--header-tan-deep);
+    border-radius: 6px;
+    padding: 1px 6px;
+    font-size: 0.95em;
+  }
+  details {
+    border-bottom: 1px solid var(--line);
+    padding: 14px 0;
+  }
+  details:last-child { border-bottom: none; }
+  summary {
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 16px;
+  }
+  details p { margin: 10px 0 0; color: var(--ink-soft); }
+  footer {
+    text-align: center;
+    padding: 32px 24px 48px;
+    color: var(--ink-soft);
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Support</h1>
+  <p>GenTogether</p>
+</header>
+
+<nav>
+  <a href="index.html">Home</a>
+  <a href="support.html">Support</a>
+  <a href="privacy.html">Privacy</a>
+</nav>
+
+<main>
+  <div class="card">
+    <h2 style="margin-top:0;">Get in touch</h2>
+    <p>Run into a problem, or have a question about GenTogether? Email us at <a href="mailto:your-email@example.com" class="placeholder">your-email@example.com</a> and we'll get back to you.</p>
+    <p>Found a bug? You can also <a href="https://github.com/your-org/your-repo/issues" class="placeholder">open an issue on GitHub</a>.</p>
+  </div>
+
+  <h2>Common questions</h2>
+
+  <details>
+    <summary>How do I change which categories I play?</summary>
+    <p>Open the Profile tab and tap Change under your account. You can turn categories on or off at any time — your choices update right away.</p>
+  </details>
+
+  <details>
+    <summary>I forgot my password. How do I reset it?</summary>
+    <p>On the sign-in screen, tap Forgot Password and enter your email. We'll send you a link to set a new one. If you signed up with Google, use Google's account recovery instead — GenTogether doesn't store a separate password for Google accounts.</p>
+  </details>
+
+  <details>
+    <summary>I'm playing as a guest. Will I lose my progress?</summary>
+    <p>Guest progress is tied to your device. To keep your progress if you switch devices or reinstall the app, create a permanent account from the Profile tab before that happens.</p>
+  </details>
+
+  <details>
+    <summary>How do I delete my account?</summary>
+    <p>Email us at your-email@example.com from the address associated with your account and we'll delete your account and data.</p>
+  </details>
+</main>
+
+<footer>
+  GenTogether
+</footer>
+
+</body>
+</html>
