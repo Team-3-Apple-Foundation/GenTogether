@@ -269,7 +269,7 @@ struct OnboardingView: View {
     // MARK: - Colors
 
     private enum Palette {
-        static let tan          = Color(red: 0.84, green: 0.72, blue: 0.57)
+        static let tan          = GTColor.brand
         static let screen       = Color(red: 0.96, green: 0.96, blue: 0.96)
         static let pill         = Color(red: 0.90, green: 0.90, blue: 0.91)
         static let inactive     = Color(red: 0.87, green: 0.87, blue: 0.88)
