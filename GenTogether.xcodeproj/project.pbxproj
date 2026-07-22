@@ -13,12 +13,10 @@
 		22EA0D41300BF7BE00A8326A /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 22EA0D40300BF7BE00A8326A /* FirebaseCore */; };
 		22EA0DCF300C030800A8326A /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 22EA0DCE300C030800A8326A /* GoogleSignIn */; };
 		22EA0DD1300C030800A8326A /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 22EA0DD0300C030800A8326A /* GoogleSignInSwift */; };
-		D56055AA300DA61C008D4EE2 /* Untitled.swift in Sources */ = {isa = PBXBuildFile; fileRef = D56055A9300DA61A008D4EE2 /* Untitled.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		2256027430087AAB00DEA67D /* GenTogether.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GenTogether.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		D56055A9300DA61A008D4EE2 /* Untitled.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Untitled.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -64,7 +62,6 @@
 			children = (
 				2256027630087AAB00DEA67D /* GenTogether */,
 				2256027530087AAB00DEA67D /* Products */,
-				D56055A9300DA61A008D4EE2 /* Untitled.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -160,7 +157,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D56055AA300DA61C008D4EE2 /* Untitled.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

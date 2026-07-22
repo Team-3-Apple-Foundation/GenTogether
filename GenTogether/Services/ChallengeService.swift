@@ -33,6 +33,26 @@ final class ChallengeService {
         }
     }
 
+    /// Challenges belonging to any of the given categories, filtered
+    /// server-side via `whereField("category", in:)` rather than fetching
+    /// everything and filtering in Swift. Firestore's `in` operator allows
+    /// at most 10 values — always safe here since there are only 4
+    /// possible categories.
+    func fetchChallenges(categories: [ChallengeCategory]) async throws -> [Challenge] {
+        guard !categories.isEmpty else { return [] }
+        try FirebaseEnvironment.requireConfigured()
+        do {
+            let snapshot = try await db.collection("challenges")
+                .whereField("category", in: categories.map(\.rawValue))
+                .getDocuments()
+            let challenges = try snapshot.documents.map { try $0.data(as: Challenge.self) }
+            return challenges.sorted { $0.category.rawValue < $1.category.rawValue }
+        } catch {
+            print("ChallengeService: failed to list challenges for categories \(categories) — \(error)")
+            throw ChallengeServiceError.readFailed(id: nil, underlying: error)
+        }
+    }
+
     func fetchChallenge(id: String) async throws -> Challenge {
         try FirebaseEnvironment.requireConfigured()
         do {

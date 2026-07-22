@@ -7,11 +7,13 @@ struct JourneyView: View {
     @StateObject private var viewModel = JourneyViewModel()
     @State private var activeChallenge: GameChallenge?
 
-    /// Maps the raw Firestore challenges into the lightweight display type
-    /// GameView/ChallengeRow use. `fetchChallenges()` sorts by category, so
-    /// this ordering — and therefore each challenge's `number` — is stable
-    /// across launches, which matters because GameProgress persists
-    /// completed challenges keyed by that number.
+    /// Maps the raw Firestore challenges (already filtered by
+    /// preferredCategories, merged with any completed challenges outside
+    /// those categories, and cross-category interleaved — all done in
+    /// JourneyViewModel) into the lightweight display type GameView/
+    /// ChallengeRow use. `number` is just this list's current position —
+    /// it can change from one load to the next, so GameProgress tracks
+    /// completion by `challengeId` instead, never by `number`.
     private var challenges: [GameChallenge] {
         viewModel.challenges.enumerated().compactMap { index, challenge in
             guard let challengeId = challenge.id else { return nil }
@@ -45,7 +47,7 @@ struct JourneyView: View {
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)
                             Button("Try Again") {
-                                Task { await viewModel.load(userId: authViewModel.currentUserId) }
+                                Task { await viewModel.load(userId: authViewModel.currentUserId, completedChallengeIds: progress.completedChallengeIds) }
                             }
                             .buttonStyle(.borderedProminent)
                         }
@@ -61,8 +63,9 @@ struct JourneyView: View {
                                     .frame(maxWidth: .infinity)
                                     .padding(.bottom, 4)
 
+                                let orderedIds = challenges.map(\.challengeId)
                                 ForEach(challenges) { challenge in
-                                    let status = progress.status(forChallengeNumber: challenge.number)
+                                    let status = progress.status(for: challenge.challengeId, in: orderedIds)
 
                                     Button {
                                         activeChallenge = challenge
@@ -93,7 +96,7 @@ struct JourneyView: View {
                 }
             }
             .task {
-                await viewModel.load(userId: authViewModel.currentUserId)
+                await viewModel.load(userId: authViewModel.currentUserId, completedChallengeIds: progress.completedChallengeIds)
             }
         }
     }
