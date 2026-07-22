@@ -27,9 +27,12 @@ struct AuthView: View {
             ScrollView {
                 VStack(spacing: 20) {
                     VStack(spacing: 8) {
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 48))
-                            .foregroundStyle(.orange)
+                        Image("AppLogo")
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 112, height: 112)
+                            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                            .shadow(color: .black.opacity(0.15), radius: 4, x: 0, y: 2)
                         Text("GenTogether")
                             .font(.largeTitle.bold())
                         Text("Learn to spot AI-generated images, together.")
@@ -37,7 +40,10 @@ struct AuthView: View {
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                     }
-                    .padding(.top, 32)
+                    // Trimmed from 32 to 20 to help offset the taller logo
+                    // (64pt → 112pt) so the whole header block doesn't push
+                    // everything below it further down than before.
+                    .padding(.top, 20)
 
                     Picker("Mode", selection: $mode) {
                         ForEach(Mode.allCases, id: \.self) { mode in
