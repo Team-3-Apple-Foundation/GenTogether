@@ -2,6 +2,9 @@
 import SwiftUI
 
 struct HomeView: View {
+    /// Set true when the tutorial's "Start game" is tapped, which pushes Journey.
+    @State private var showJourneyFromTutorial = false
+
     var body: some View {
         NavigationStack {
             content
@@ -34,6 +37,7 @@ struct HomeView: View {
                     Spacer(minLength: 12)
 
                     playButton
+                    tutorialButton
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 24)
@@ -41,10 +45,35 @@ struct HomeView: View {
             .background(GTColor.background)
         }
         .background(GTColor.background)
+        .navigationDestination(isPresented: $showJourneyFromTutorial) {
+            JourneyView()
+                .navigationBarBackButtonHidden(true)
+        }
     }
 
     private var header: some View {
         GTHeader(title: "GenTogether")
+    }
+    
+    private var tutorialButton: some View {
+        NavigationLink {
+            TutorialSlide(onStartGame: { showJourneyFromTutorial = true })
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "questionmark.circle")
+                    .font(.system(size: 18, weight: .bold))
+                Text("How to play")
+                    .font(.body.bold())
+            }
+            .foregroundStyle(GTColor.brand2)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(GTColor.brand2, lineWidth: 2)
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     private var playButton: some View {
@@ -58,7 +87,7 @@ struct HomeView: View {
                 Text("Play spot the difference")
                     .font(.body.bold())
             }
-            .foregroundStyle(.black)
+            .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
             .background(GTColor.brand2)
@@ -67,6 +96,8 @@ struct HomeView: View {
         }
         .buttonStyle(.plain)
     }
+
+
 }
 
 #Preview {

@@ -285,7 +285,7 @@ struct GameView: View {
                     Spacer()
 
                     Image(systemName: "chevron.down")
-                        .font(.subheadline)
+                        .font(.title2.weight(.semibold))
                         .foregroundStyle(.secondary)
                         .rotationEffect(.degrees(isExpanded ? 180 : 0))
                 }
