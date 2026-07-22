@@ -342,6 +342,7 @@ struct GameView: View {
                 Text(answer.label)
                     .font(.title3.weight(.semibold))
             }
+            .foregroundStyle(.black)
             .frame(maxWidth: .infinity, minHeight: 72)
         }
         .buttonStyle(.borderedProminent)
@@ -378,9 +379,11 @@ struct GameView: View {
                 } label: {
                     Text("Continue")
                         .font(.title3.weight(.semibold))
+                        .foregroundStyle(.black)
                         .frame(maxWidth: .infinity, minHeight: 56)
                 }
                 .buttonStyle(.borderedProminent)
+                .tint(Color(hex: "78C5EF"))
             }
             .padding(28)
             .background(
@@ -399,8 +402,10 @@ struct GameView: View {
         } label: {
             Label("Play again", systemImage: "arrow.clockwise")
                 .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.black)
                 .frame(maxWidth: .infinity, minHeight: 44)
         }
+        .tint(Color(hex: "78C5EF"))
     }
 
     /// Clears every trace of the last game so a new one starts fresh.
@@ -481,7 +486,7 @@ enum Answer {
 
     var color: Color {
         switch self {
-        case .real: .blue
+        case .real: Color(hex: "78C5EF")
         case .ai: .orange
         }
     }

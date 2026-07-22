@@ -20,7 +20,7 @@ struct TipCard: View {
                 VStack(spacing: 12) {
                     if showsHeader {
                         Text("Tip of the Day")
-                            .font(.headline)
+                            .font(.system(size: 22, weight: .bold))
                             .foregroundStyle(.primary)
                     }
 
@@ -47,12 +47,12 @@ struct TipCard: View {
             Image(name)
                 .resizable()
                 .scaledToFit()
-                .frame(maxHeight: 180)
+                .frame(maxHeight: 200)
         case .imageWithText(let name, let caption):
             Image(name)
                 .resizable()
                 .scaledToFit()
-                .frame(maxHeight: 140)
+                .frame(maxHeight: 180)
             Text(caption)
                 .font(.title3)
                 .multilineTextAlignment(.center)

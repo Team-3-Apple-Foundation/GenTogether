@@ -65,12 +65,12 @@ struct HomeView: View {
                 Text("How to play")
                     .font(.body.bold())
             }
-            .foregroundStyle(GTColor.brand2)
+            .foregroundStyle(.black)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(GTColor.brand2, lineWidth: 2)
+                    .stroke(GTColor.brand, lineWidth: 2)
             )
         }
         .buttonStyle(.plain)
@@ -87,10 +87,10 @@ struct HomeView: View {
                 Text("Play spot the difference")
                     .font(.body.bold())
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(.black)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
-            .background(GTColor.brand2)
+            .background(GTColor.brand)
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             
         }
