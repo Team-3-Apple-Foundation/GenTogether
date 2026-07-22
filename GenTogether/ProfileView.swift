@@ -47,9 +47,15 @@ struct ProfileView: View {
                     }
                 }
 
-                Section {
-                    Button("Sign Out", role: .destructive) {
-                        authViewModel.signOut()
+                // An anonymous session has no credential to sign back in
+                // with — signing out would permanently strand every bit of
+                // progress under this uid. Hide the option entirely until
+                // the guest links a real account (email or Google).
+                if !authViewModel.isAnonymous {
+                    Section {
+                        Button("Sign Out", role: .destructive) {
+                            authViewModel.signOut()
+                        }
                     }
                 }
             }
