@@ -56,7 +56,8 @@ struct TipCard: View {
             Text(caption)
                 .font(.title3)
                 .multilineTextAlignment(.center)
-                .foregroundStyle(.secondary)
+//                .foregroundStyle(.secondary)
+                .foregroundStyle(.black)
                 .minimumScaleFactor(0.5)
                 .lineLimit(5)
         }

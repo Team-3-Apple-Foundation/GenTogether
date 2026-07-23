@@ -26,7 +26,7 @@ extension Tip {
         Tip(content: .imageWithText(name: "sm_icon", caption: "AI often struggles to draw the right  number of fingers on a hand. Count them to check.")),
         Tip(content: .imageWithText(name: "real_hand", caption: "A real photo. Notice the natural, correctly-shaped fingers.")),
         Tip(content: .imageWithText(name: "AI_hand",  caption: "AI-made. Look for extra or bent fingers or smooth texture.")),
-        Tip(content: .imageWithText(name: "AI_logo",  caption: "AI-generated images often has this logo.")),
+        Tip(content: .imageWithText(name: "AI_logo",  caption: "AI-generated images often leave a watermark.")),
 //        Tip(content: .text("AI-generated images often struggle with hands, text, and repeating background patterns — look closely before you decide.")),
 //        Tip(content: .text("Check reflections and shadows — AI often gets lighting subtly wrong.")),
 //        Tip(content: .text("Zoom in on fine details like jewellery, teeth, and strands of hair.")),

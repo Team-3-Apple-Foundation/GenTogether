@@ -63,10 +63,12 @@ struct JourneyView: View {
                             VStack(spacing: 16) {
                                 Text("Select a challenge below to play.")
                                     .font(.title3)
-                                    .foregroundStyle(.secondary)
+//                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(.black)
                                     .multilineTextAlignment(.center)
                                     .frame(maxWidth: .infinity)
                                     .padding(.bottom, 4)
+                                    
 
                                 let orderedIds = challenges.map(\.challengeId)
                                 ForEach(challenges) { challenge in
