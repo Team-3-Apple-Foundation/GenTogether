@@ -217,6 +217,26 @@ final class AuthService: ObservableObject {
         changeRequest.displayName = displayName
         try await changeRequest.commitChanges()
     }
+
+    /// Syncs a name into Firebase Auth's own `user.displayName` for
+    /// whichever user is currently signed in. `createAccount` and
+    /// `linkAnonymousAccount` already do this via `applyDisplayName` at
+    /// creation time, but a guest session never routes through either of
+    /// those — so without this, `AuthViewModel.displayName` (which reads
+    /// `user.displayName` first) stays nil for every guest forever,
+    /// regardless of what name they saved during onboarding. Onboarding
+    /// calls this so a guest's name shows up everywhere the app reads that
+    /// published property (Community posts/comments, the Profile fallback),
+    /// not just in the Firestore profile document.
+    func updateCurrentUserDisplayName(_ displayName: String) async throws {
+        guard let user = Auth.auth().currentUser else { return }
+        try await applyDisplayName(displayName, to: user)
+        // Same reason as the link(with:) calls above: a profile-only change
+        // on the already-signed-in user doesn't retrigger
+        // addStateDidChangeListener, so `firebaseUser` needs a manual nudge
+        // or AuthViewModel.displayName won't reflect this until relaunch.
+        firebaseUser = user
+    }
 }
 
 enum AuthServiceError: LocalizedError {

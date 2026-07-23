@@ -69,16 +69,19 @@ final class OnboardingViewModel: ObservableObject {
 
     private let preferenceService: PreferenceService
     private let userService: UserService
+    private let authService: AuthService
     private let userIdProvider: @MainActor () -> String?
     private var resetCancellable: AnyCancellable?
 
     init(
         preferenceService: PreferenceService? = nil,
         userService: UserService? = nil,
+        authService: AuthService? = nil,
         userIdProvider: (@MainActor () -> String?)? = nil
     ) {
         self.preferenceService = preferenceService ?? .shared
         self.userService = userService ?? .shared
+        self.authService = authService ?? .shared
         self.userIdProvider = userIdProvider ?? { AuthService.shared.currentUser?.uid }
 
         // UserService broadcasts this on sign-out so this view model — which
@@ -174,6 +177,13 @@ final class OnboardingViewModel: ObservableObject {
             // non-fatal, same as the guest-profile best-effort write.
             do {
                 try await userService.updateDisplayName(userId: userId, displayName: preferences.name)
+                // Also sync into Firebase Auth's own user.displayName — the
+                // field AuthViewModel.displayName reads first, and the only
+                // one Community posts/comments read at all. Without this, a
+                // guest's name never shows up there even though the
+                // Firestore write above succeeded, since guests never go
+                // through applyDisplayName otherwise.
+                try await authService.updateCurrentUserDisplayName(preferences.name)
             } catch {
                 errorMessage = "Saved your preferences, but couldn't save your name: \(error.localizedDescription)"
             }

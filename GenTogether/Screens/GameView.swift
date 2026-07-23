@@ -173,6 +173,15 @@ struct GameView: View {
                 } fallback: {
                     mediaFallback
                 }
+                // AsyncImage (inside RemoteMediaView) keeps showing its last
+                // successfully-loaded image when only the `url` it's given
+                // changes — it doesn't reset to the loading state on its
+                // own. Tagging it with the round's id forces SwiftUI to
+                // treat each round as a brand-new view instead of the same
+                // one being updated, so it always restarts at the
+                // placeholder instead of showing the previous round's photo
+                // while the new one loads.
+                .id(currentRound.id)
                 .frame(maxWidth: .infinity)
                 .frame(height: 320)
                 .background(Color(.secondarySystemBackground))
