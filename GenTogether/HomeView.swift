@@ -17,12 +17,13 @@ struct HomeView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Learn to identify Generative AI!")
+                    Text("Learn to identify Generative AI images!")
                         .font(.title2.bold())
                         .foregroundStyle(.primary)
                         .frame(maxWidth: .infinity, alignment: .center)
                         .multilineTextAlignment(.center)
                         .padding(.top, 8)
+                        .offset(y: 18)
 
                     TabView {
                         ForEach(Array(Tip.samples.enumerated()), id: \.element.id) { index, tip in
