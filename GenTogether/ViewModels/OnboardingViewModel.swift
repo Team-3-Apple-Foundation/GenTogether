@@ -53,6 +53,18 @@ final class OnboardingViewModel: ObservableObject {
 
     static let minuteOptions = [5, 10, 15, 20]
 
+    /// Maps each onboarding interest label to the `ChallengeCategory` the
+    /// Hobbies screen actually reads/writes. The two lists don't spell
+    /// things the same way ("Arts and Craft" vs. rawValue "arts", "Food"
+    /// vs. "foods"), so this has to be an explicit table, not a
+    /// lowercase/reformat of the label.
+    static let interestToCategory: [String: ChallengeCategory] = [
+        "Animals": .animals,
+        "Nature": .natures,
+        "Arts and Craft": .arts,
+        "Food": .foods
+    ]
+
     // MARK: - Dependencies
 
     private let preferenceService: PreferenceService
@@ -139,10 +151,18 @@ final class OnboardingViewModel: ObservableObject {
             name: name.trimmingCharacters(in: .whitespaces)
         )
 
+        // The Hobbies screen (ProfileView → "Change") reads categories from
+        // users/{uid}.preferredCategories, a completely different document
+        // and field than the one this view model saves onboarding answers
+        // to below — so onboarding has to write both, or the Hobbies screen
+        // stays empty even after a successful save here.
+        let categories = interests.compactMap { Self.interestToCategory[$0] }
+
         #if DEBUG
         print("[DIAG][Onboarding] saving for uid: \(userId)")
         print("[DIAG][Onboarding] path: users/\(userId)/preferences/onboarding, field: interests")
         print("[DIAG][Onboarding] interests value being saved: \(preferences.interests)")
+        print("[DIAG][Onboarding] path: users/\(userId), field: preferredCategories, value: \(categories.map(\.rawValue))")
         #endif
 
         do {
@@ -157,6 +177,7 @@ final class OnboardingViewModel: ObservableObject {
             } catch {
                 errorMessage = "Saved your preferences, but couldn't save your name: \(error.localizedDescription)"
             }
+            try await userService.updatePreferredCategories(userId: userId, categories: categories)
             didComplete = true
         } catch {
             errorMessage = error.localizedDescription

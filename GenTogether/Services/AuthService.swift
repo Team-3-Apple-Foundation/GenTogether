@@ -156,6 +156,11 @@ final class AuthService: ObservableObject {
         do {
             let result = try await user.link(with: credential)
             try await applyDisplayName(displayName, to: result.user)
+            // link(with:) keeps the same uid, so Auth's addStateDidChangeListener
+            // (which normally drives `firebaseUser`) doesn't fire again — without
+            // this, isAnonymous/currentUserId etc. downstream would stay stale
+            // until the app relaunches and the listener re-attaches.
+            firebaseUser = result.user
             return result.user
         } catch {
             throw AuthServiceError.linkingFailed(error)
@@ -185,6 +190,10 @@ final class AuthService: ObservableObject {
             if let currentUser = Auth.auth().currentUser, currentUser.isAnonymous {
                 do {
                     let linkResult = try await currentUser.link(with: credential)
+                    // Same reason as linkAnonymousAccount above: link(with:)
+                    // doesn't retrigger addStateDidChangeListener, so the
+                    // published firebaseUser needs a manual nudge here.
+                    firebaseUser = linkResult.user
                     return linkResult.user
                 } catch {
                     // Most likely "credential already in use" — that Google
