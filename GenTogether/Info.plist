@@ -9,10 +9,6 @@
 			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<!-- REVERSED_CLIENT_ID from GoogleService-Info.plist — required
-				     for Google Sign-In's browser redirect to return to the app.
-				     If GoogleService-Info.plist is ever regenerated with a new
-				     CLIENT_ID, update this to match its REVERSED_CLIENT_ID. -->
 				<string>com.googleusercontent.apps.728989456670-fs19glrd9bcb3g77a0gbe3i985mlp5vi</string>
 			</array>
 		</dict>
