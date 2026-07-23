@@ -61,8 +61,10 @@ struct GTTabBar: View {
                         Text(tab.title)
                             .font(.caption2)
                             .fontWeight(isSelected ? .semibold : .regular)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.9)
                     }
-                    .foregroundStyle(isSelected ? GTColor.brand : Color.gray)
+                    .foregroundStyle(isSelected ? GTColor.brand : Color.black)
                     // Soft orange pill sits behind the selected tab only.
                     .padding(.vertical, 6)
                     .padding(.horizontal, 12)
