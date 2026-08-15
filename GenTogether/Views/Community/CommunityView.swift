@@ -9,7 +9,6 @@ struct CommunityView: View {
     @StateObject private var viewModel = CommunityViewModel()
     @EnvironmentObject private var authViewModel: AuthViewModel
     @FocusState private var isComposerFocused: Bool
-    @State private var pendingDeletePost: CommunityPost?
 
     var body: some View {
         NavigationStack {
@@ -41,20 +40,27 @@ struct CommunityView: View {
                                     NavigationLink {
                                         CommunityPostDetailView(post: post)
                                     } label: {
-                                        postCard(post)
+                                        CommunityPostRow(
+                                            post: post,
+                                            isOwnPost: post.userId == authViewModel.currentUserId,
+                                            isLiked: authViewModel.currentUserId.map(post.isLiked(by:)) ?? false,
+                                            commentCount: viewModel.commentCounts[post.id ?? ""] ?? 0,
+                                            onToggleLike: {
+                                                Task {
+                                                    guard let userId = authViewModel.currentUserId else { return }
+                                                    await viewModel.toggleLike(post, userId: userId)
+                                                }
+                                            },
+                                            onDelete: {
+                                                Task {
+                                                    guard let userId = authViewModel.currentUserId else { return }
+                                                    await viewModel.deletePost(post, userId: userId)
+                                                }
+                                            }
+                                        )
                                     }
                                     .buttonStyle(.plain)
                                     .task { await viewModel.loadCommentCount(for: post) }
-                                    // Long-press to delete — only attached at
-                                    // all when this post is the signed-in
-                                    // user's own, so someone else's post
-                                    // shows no delete option whatsoever.
-                                    .modifier(
-                                        OwnPostDeleteMenu(
-                                            isOwnPost: post.userId == authViewModel.currentUserId,
-                                            onDelete: { pendingDeletePost = post }
-                                        )
-                                    )
                                 }
                             }
                             .padding(.horizontal, 20)
@@ -67,26 +73,6 @@ struct CommunityView: View {
                 .task { await viewModel.load() }
             }
             .background(GTColor.background)
-            .confirmationDialog(
-                "Delete this post?",
-                isPresented: Binding(
-                    get: { pendingDeletePost != nil },
-                    set: { isPresented in if !isPresented { pendingDeletePost = nil } }
-                ),
-                titleVisibility: .visible
-            ) {
-                Button("Delete", role: .destructive) {
-                    if let post = pendingDeletePost, let userId = authViewModel.currentUserId {
-                        Task { await viewModel.deletePost(post, userId: userId) }
-                    }
-                    pendingDeletePost = nil
-                }
-                Button("Cancel", role: .cancel) {
-                    pendingDeletePost = nil
-                }
-            } message: {
-                Text("This can't be undone.")
-            }
         }
     }
 
@@ -144,18 +130,60 @@ struct CommunityView: View {
         .padding(.horizontal, 20)
     }
 
-    // MARK: Post card
+}
 
-    private func postCard(_ post: CommunityPost) -> some View {
+/// A single post card in the Community feed.
+///
+/// This is its own `View` (rather than a plain helper function) so each
+/// row owns its own `@State` for the delete-confirmation popover — that's
+/// what lets the popover anchor to *this* row's trash button specifically,
+/// instead of one confirmation shared across every post in the list.
+private struct CommunityPostRow: View {
+    let post: CommunityPost
+    let isOwnPost: Bool
+    let isLiked: Bool
+    let commentCount: Int
+    let onToggleLike: () -> Void
+    let onDelete: () -> Void
+
+    @State private var showDeleteConfirm = false
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
-                avatar(for: post.displayName)
+                avatar
                 Text(post.displayName)
                     .font(.subheadline.weight(.bold))
                 Spacer()
                 Text(post.createdAt, style: .relative)
                     .font(.caption2)
                     .foregroundStyle(Color(.systemGray2))
+
+                // Only shown on the signed-in user's own post — someone
+                // else's post gets no delete button at all, rather than a
+                // disabled one.
+                if isOwnPost {
+                    Button {
+                        showDeleteConfirm = true
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(.subheadline)
+                            .foregroundStyle(Color(.systemGray2))
+                            .frame(width: 24, height: 24)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    // Anchored directly to this button (not to the screen
+                    // or the whole list), so it opens right next to the
+                    // row that was actually tapped.
+                    .popover(isPresented: $showDeleteConfirm) {
+                        deleteConfirmation
+                            // Without this, iOS collapses the popover into
+                            // a bottom sheet on iPhone's compact width —
+                            // this keeps the actual floating-bubble look.
+                            .presentationCompactAdaptation(.popover)
+                    }
+                }
             }
 
             Text(post.content)
@@ -165,24 +193,18 @@ struct CommunityView: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             HStack(spacing: 16) {
-                Button {
-                    Task {
-                        guard let userId = authViewModel.currentUserId else { return }
-                        await viewModel.toggleLike(post, userId: userId)
-                    }
-                } label: {
-                    let liked = authViewModel.currentUserId.map(post.isLiked(by:)) ?? false
+                Button(action: onToggleLike) {
                     CommunityStatBadge(
-                        icon: liked ? "heart.fill" : "heart",
+                        icon: isLiked ? "heart.fill" : "heart",
                         count: post.likeCount,
-                        tint: liked ? .red : .secondary
+                        tint: isLiked ? .red : .secondary
                     )
                 }
                 .buttonStyle(.plain)
 
                 CommunityStatBadge(
                     icon: "bubble.right",
-                    count: viewModel.commentCounts[post.id ?? ""] ?? 0,
+                    count: commentCount,
                     tint: .secondary
                 )
 
@@ -200,38 +222,43 @@ struct CommunityView: View {
         )
     }
 
+    private var deleteConfirmation: some View {
+        VStack(spacing: 16) {
+            Text("Delete this post?")
+                .font(.headline)
+            Text("This can't be undone.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            HStack(spacing: 12) {
+                Button("Cancel", role: .cancel) {
+                    showDeleteConfirm = false
+                }
+                .buttonStyle(.bordered)
+
+                Button("Delete", role: .destructive) {
+                    showDeleteConfirm = false
+                    onDelete()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.red)
+            }
+        }
+        .padding(20)
+        .frame(minWidth: 240)
+    }
+
     /// Circular brand-orange avatar showing the display name's first
     /// letter — more identifiable at a glance than a generic person icon.
-    private func avatar(for displayName: String) -> some View {
+    private var avatar: some View {
         Circle()
             .fill(GTColor.brand)
             .frame(width: 36, height: 36)
             .overlay(
-                Text(displayName.prefix(1).uppercased())
+                Text(post.displayName.prefix(1).uppercased())
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(.white)
             )
-    }
-
-}
-
-/// Attaches a long-press "Delete Post" context menu only when `isOwnPost`
-/// is true — someone else's post gets no context menu at all, rather than
-/// an empty one, so long-pressing it visibly does nothing.
-private struct OwnPostDeleteMenu: ViewModifier {
-    let isOwnPost: Bool
-    let onDelete: () -> Void
-
-    func body(content: Content) -> some View {
-        if isOwnPost {
-            content.contextMenu {
-                Button(role: .destructive, action: onDelete) {
-                    Label("Delete Post", systemImage: "trash")
-                }
-            }
-        } else {
-            content
-        }
     }
 }
 
