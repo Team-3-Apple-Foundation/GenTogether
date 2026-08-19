@@ -20,8 +20,14 @@ struct TipCard: View {
                 VStack(spacing: 12) {
                     if showsHeader {
                         Text("Tip of the Day")
-                            .font(.system(size: 22, weight: .bold))
+                            .font(.title2.weight(.bold))
                             .foregroundStyle(.primary)
+                            // This card is a fixed 1:1 square that clips
+                            // its contents — same shrink-to-fit guard as
+                            // the tip text below, so a large accessibility
+                            // text size doesn't get clipped by the card.
+                            .minimumScaleFactor(0.5)
+                            .lineLimit(2)
                     }
 
                     content

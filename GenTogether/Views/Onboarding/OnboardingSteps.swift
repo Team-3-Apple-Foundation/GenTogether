@@ -35,7 +35,7 @@ struct OnboardingView: View {
             ScrollView {
                 VStack(spacing: 28) {
                     Text(step.question)
-                        .font(.system(size: 22, weight: .medium))
+                        .scaledFont(size: 22, weight: .medium)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.horizontal, 32)
@@ -63,7 +63,7 @@ struct OnboardingView: View {
     private var header: some View {
         ZStack {
             Text("Onboarding")
-                .font(.system(size: 22, weight: .bold))
+                .scaledFont(size: 22, weight: .bold)
                 .foregroundStyle(.black)
 
             HStack {
@@ -109,7 +109,7 @@ struct OnboardingView: View {
         case .name:
             HStack(spacing: 10) {
                 TextField("Choose a username", text: $onboardingViewModel.name)
-                    .font(.system(size: 16))
+                    .scaledFont(size: 16)
                     .textInputAutocapitalization(.words)
                     .autocorrectionDisabled()
 
@@ -178,7 +178,7 @@ struct OnboardingView: View {
                             action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 16))
+                .scaledFont(size: 16)
                 .foregroundStyle(.black)
                 .frame(maxWidth: .infinity, minHeight: 46)
                 .background(selected ? Palette.tan : Palette.pill)
@@ -203,7 +203,7 @@ struct OnboardingView: View {
                         Text(step.isLast ? "Complete" : "Continue")
                     }
                 }
-                .font(.system(size: 16, weight: .bold))
+                .scaledFont(size: 16, weight: .bold)
                 .foregroundStyle(.black)
                 .frame(maxWidth: .infinity, minHeight: 48)
                 .background(canContinue ? Palette.tan : Palette.tan.opacity(0.45))
@@ -217,7 +217,7 @@ struct OnboardingView: View {
                     onboardingViewModel.name = ""
                     step = .familiarity
                 }
-                .font(.system(size: 14))
+                .scaledFont(size: 14)
                 .foregroundStyle(.black.opacity(0.6))
                 .padding(.vertical, 8)
                 .contentShape(Rectangle())

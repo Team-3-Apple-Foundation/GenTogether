@@ -15,6 +15,10 @@ struct AppRootView: View {
     @StateObject private var onboardingViewModel = OnboardingViewModel()
     @State private var gameProgress = GameProgress()
     @State private var hasCheckedOnboarding = false
+    // Same UserDefaults key TextSizeView saves to — reading it here means
+    // any change made there takes effect immediately, app-wide, with no
+    // extra plumbing between the two screens.
+    @AppStorage("textSizeOption") private var textSizeOption: TextSizeOption = .medium
 
     var body: some View {
         Group {
@@ -32,6 +36,7 @@ struct AppRootView: View {
         }
         .environmentObject(authViewModel)
         .environment(gameProgress)
+        .environment(\.dynamicTypeSize, textSizeOption.dynamicTypeSize)
         .onChange(of: authViewModel.currentUserId, initial: true) { _, newUserId in
             gameProgress.setCurrentUser(newUserId)
             hasCheckedOnboarding = false

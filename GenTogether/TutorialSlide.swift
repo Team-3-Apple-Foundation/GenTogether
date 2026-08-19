@@ -73,11 +73,11 @@ struct TutorialSlide: View {
         VStack(spacing: 28) {
             VStack(spacing: 12) {
                 Text("\(item.number). \(item.title)")
-                    .font(.system(size: 30, weight: .bold))
+                    .scaledFont(size: 30, weight: .bold)
                     .foregroundStyle(.black)
 
                 Text(item.description)
-                    .font(.system(size: 19))
+                    .scaledFont(size: 19)
                     .foregroundStyle(.black.opacity(0.75))
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
@@ -127,7 +127,7 @@ struct TutorialSlide: View {
             onStartGame()
         } label: {
             Text("Start game")
-                .font(.system(size: 24, weight: .bold))
+                .scaledFont(size: 24, weight: .bold)
                 .foregroundStyle(.black)
                 .frame(maxWidth: .infinity, minHeight: 66)
                 .background(GTColor.brand)

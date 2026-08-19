@@ -1,79 +1,192 @@
 
 import SwiftUI
 
+/// Profile tab's landing screen — a settings hub. Each row here just
+/// navigates somewhere else; none of these rows hold real settings logic
+/// themselves (that lives in the pushed screens, e.g. ManageAccountView).
 struct ProfileView: View {
     @EnvironmentObject private var authViewModel: AuthViewModel
-    @StateObject private var preferencesViewModel = OnboardingViewModel()
-    @State private var profile: UserProfile?
-    @State private var showUpgradeSheet = false
+    // Not wired to real app-wide dark mode yet — that's a separate task.
+    // This just gets the row's Toggle UI in place.
+    @State private var isDarkMode = false
 
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    HStack(spacing: 12) {
-                        Image(systemName: "person.crop.circle.fill")
-                            .font(.system(size: 44))
-                            .foregroundStyle(.orange)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(profile?.displayName ?? authViewModel.displayName ?? "—")
-                                .font(.headline)
-                            Text(authViewModel.isAnonymous ? "Guest account" : "Registered account")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+            VStack(spacing: 0) {
+                GTHeader(title: "Profile")
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 24) {
+                        group("Manage Account") {
+                            NavigationLink {
+                                ManageAccountView()
+                            } label: {
+                                ProfileRow(
+                                    title: authViewModel.displayName ?? "Guest",
+                                    subtitle: "Update your details"
+                                ) {
+                                    avatarIcon
+                                } trailing: {
+                                    chevron
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+
+                        group("Accessibility") {
+                            NavigationLink {
+                                TextSizeView()
+                            } label: {
+                                ProfileRow(title: "Text Size", subtitle: "Adjust the size") {
+                                    iconCircle("textformat.size")
+                                } trailing: {
+                                    chevron
+                                }
+                            }
+                            .buttonStyle(.plain)
+
+                            Divider().padding(.leading, 58)
+
+                            ProfileRow(title: "Theme", subtitle: "Dark Mode") {
+                                iconCircle("moon.stars.fill")
+                            } trailing: {
+                                Toggle("", isOn: $isDarkMode)
+                                    .labelsHidden()
+                                    .tint(GTColor.brand)
+                            }
+                        }
+
+                        group("Game Preferences") {
+                            NavigationLink {
+                                InterestsPreferenceView()
+                            } label: {
+                                ProfileRow(title: "Your Interests", subtitle: "Change interests") {
+                                    iconCircle("heart.fill")
+                                } trailing: {
+                                    chevron
+                                }
+                            }
+                            .buttonStyle(.plain)
+
+                            Divider().padding(.leading, 58)
+
+                            NavigationLink {
+                                DailyReminderView()
+                            } label: {
+                                ProfileRow(title: "Daily Reminder", subtitle: "Set a notification") {
+                                    iconCircle("bell.fill")
+                                } trailing: {
+                                    chevron
+                                }
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
-                    .padding(.vertical, 4)
+                    .padding(20)
                 }
-
-                Section {
-                    NavigationLink {
-                        InterestsPreferenceView()
-                    } label: {
-                        HStack {
-                            Text("Interests")
-                            Spacer()
-                            Text("Change")
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-
-                if authViewModel.isAnonymous {
-                    Section {
-                        Button("Create a Permanent Account") { showUpgradeSheet = true }
-                    } footer: {
-                        Text("Upgrading keeps your existing progress — you'll just add an email and password.")
-                    }
-                }
-
-                // An anonymous session has no credential to sign back in
-                // with — signing out would permanently strand every bit of
-                // progress under this uid. Hide the option entirely until
-                // the guest links a real account (email or Google).
-                if !authViewModel.isAnonymous {
-                    Section {
-                        Button("Sign Out", role: .destructive) {
-                            authViewModel.signOut()
-                        }
-                    }
-                }
+                .background(GTColor.background)
             }
-            .navigationTitle("Profile")
-            .task {
-                await preferencesViewModel.loadExistingPreferences()
-                await loadProfile()
-            }
-            .sheet(isPresented: $showUpgradeSheet) {
-                UpgradeAccountView()
-                    .environmentObject(authViewModel)
-            }
+            .background(GTColor.background)
         }
     }
 
-    private func loadProfile() async {
-        guard let userId = authViewModel.currentUserId else { return }
-        profile = try? await UserService.shared.fetchCurrentUserProfile(userId: userId)
+    // MARK: Row building blocks
+
+    /// One labeled group: a small caption above a white rounded card
+    /// containing the group's rows.
+    private func group<Content: View>(
+        _ title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title.uppercased())
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 4)
+
+            VStack(spacing: 0) {
+                content()
+            }
+            .padding(.horizontal, 16)
+            .gtCardBackground()
+        }
+    }
+
+    private var chevron: some View {
+        Image(systemName: "chevron.right")
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(Color(.systemGray3))
+    }
+
+    private func iconCircle(
+        _ systemName: String,
+        background: Color = GTColor.tipSoft,
+        tint: Color = GTColor.tip
+    ) -> some View {
+        Circle()
+            .fill(background)
+            .frame(width: 44, height: 44)
+            .overlay {
+                Image(systemName: systemName)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(tint)
+            }
+    }
+
+    /// Circular brand-orange avatar showing the display name's first
+    /// letter — matches the avatar style already used for post authors
+    /// in the Community tab.
+    private var avatarIcon: some View {
+        Circle()
+            .fill(GTColor.brand)
+            .frame(width: 44, height: 44)
+            .overlay(
+                Text((authViewModel.displayName ?? "G").prefix(1).uppercased())
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(.white)
+            )
+    }
+}
+
+/// A single settings row: leading icon, title + subtitle, trailing
+/// accessory (a chevron for navigation rows, a Toggle for the Theme row).
+private struct ProfileRow<Icon: View, Trailing: View>: View {
+    let title: String
+    let subtitle: String
+    let icon: Icon
+    let trailing: Trailing
+
+    init(
+        title: String,
+        subtitle: String,
+        @ViewBuilder icon: () -> Icon,
+        @ViewBuilder trailing: () -> Trailing
+    ) {
+        self.title = title
+        self.subtitle = subtitle
+        self.icon = icon()
+        self.trailing = trailing()
+    }
+
+    var body: some View {
+        HStack(spacing: 14) {
+            icon
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(.primary)
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            trailing
+        }
+        .padding(.vertical, 10)
+        .contentShape(Rectangle())
     }
 }
 
