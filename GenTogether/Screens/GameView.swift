@@ -328,14 +328,9 @@ struct GameView: View {
                         .font(.headline)
                         .foregroundStyle(result.round.isAI ? .orange : .blue)
 
-                    HStack(alignment: .top, spacing: 10) {
-                        Text("🦉")
-                            .accessibilityHidden(true)
-
-                        Text(explanation(for: result.round))
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
+                    Text(explanation(for: result.round))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(.bottom, 8)
                 .transition(.opacity.combined(with: .move(edge: .top)))
