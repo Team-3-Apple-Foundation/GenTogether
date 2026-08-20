@@ -52,6 +52,33 @@ service cloud.firestore {
         && content.size() <= 1000;
     }
 
+    // True when exactly one uid was added to or removed from `oldList`,
+    // and that uid is specifically the caller's own (request.auth.uid) —
+    // lets any signed-in user toggle their own presence in an array field
+    // (communityPosts.likedBy) without needing general update/ownership
+    // permission on the whole document, while still blocking them from
+    // adding or removing anyone else's entry.
+    //
+    // Deliberately size+membership based (hasAll/hasAny + size compare)
+    // rather than comparing against oldList.concat([uid]) — that would
+    // assume Firestore's arrayUnion/arrayRemove transform always inserts
+    // or removes at a specific position, which isn't something to rely
+    // on; this check holds regardless of where in the list it happens.
+    function onlyTogglesOwnUid(oldList, newList) {
+      return
+        // Case: adding themselves (like)
+        (newList.size() == oldList.size() + 1
+          && newList.hasAll(oldList)
+          && newList.hasAll([request.auth.uid])
+          && !oldList.hasAny([request.auth.uid]))
+        ||
+        // Case: removing themselves (unlike)
+        (oldList.size() == newList.size() + 1
+          && oldList.hasAll(newList)
+          && oldList.hasAll([request.auth.uid])
+          && !newList.hasAny([request.auth.uid]));
+    }
+
     // ---- Per-user data ----
     match /users/{userId} {
       allow read, write: if isOwner(userId);
@@ -102,22 +129,42 @@ service cloud.firestore {
         && request.resource.data.userId == request.auth.uid
         && isValidContent(request.resource.data.content);
 
-      // TEMPORARY DIAGNOSTIC — deliberately stripped to the bare minimum
-      // to isolate whether the update denial is coming from this rule's
-      // field-comparison conditions at all, versus something else
-      // entirely (wrong project, a conflicting rule, App/Console pointing
-      // at different databases). Conditions are commented below, ready to
-      // restore one at a time once we know which one(s), if any, are the
-      // actual cause. DO NOT leave this deployed long-term — it removes
-      // the ownership-field/content-tamper protections.
-      allow update: if isSignedIn();
+      // Separate, permanent fix (unrelated to the account-deletion
+      // diagnostic below): CommunityService.toggleLike updates
+      // `likedBy` on ANY post, not just ones the caller authored — a
+      // signed-in user liking someone else's post is a normal, intended
+      // action, not an edge case. The owner-only branch below only ever
+      // covered "the author editing their post"; this second branch
+      // covers "anyone toggling their own presence in likedBy", checked
+      // narrowly enough that it can't be used to smuggle in a content
+      // edit or tamper with someone else's like.
+      //
+      // TEMPORARY DIAGNOSTIC — step 2/4: userId + createdAt conditions
+      // restored, communityQuestionId/content still disabled below.
+      // DO NOT leave this deployed long-term.
+      allow update: if isSignedIn()
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && (
+          resource.data.userId == request.auth.uid
+          || (
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy'])
+            && onlyTogglesOwnUid(resource.data.likedBy, request.resource.data.likedBy)
+          )
+        );
       // allow update: if isSignedIn()
-      //   && resource.data.userId == request.auth.uid
       //   && request.resource.data.userId == resource.data.userId
       //   && request.resource.data.communityQuestionId == resource.data.communityQuestionId
       //   && request.resource.data.createdAt == resource.data.createdAt
-      //   && (request.resource.data.content == resource.data.content
-      //       || isValidContent(request.resource.data.content));
+      //   && (
+      //     (resource.data.userId == request.auth.uid
+      //       && (request.resource.data.content == resource.data.content
+      //           || isValidContent(request.resource.data.content)))
+      //     || (
+      //       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy'])
+      //       && onlyTogglesOwnUid(resource.data.likedBy, request.resource.data.likedBy)
+      //     )
+      //   );
 
       allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
 
@@ -128,11 +175,13 @@ service cloud.firestore {
           && request.resource.data.userId == request.auth.uid
           && isValidContent(request.resource.data.content);
 
-        // TEMPORARY DIAGNOSTIC — same reasoning as the post rule above:
-        // stripped to bare minimum to isolate whether the field
-        // conditions themselves are the cause. DO NOT leave deployed
-        // long-term.
-        allow update: if isSignedIn();
+        // TEMPORARY DIAGNOSTIC — step 2/4: userId + createdAt conditions
+        // restored, content still disabled below. DO NOT leave this
+        // deployed long-term.
+        allow update: if isSignedIn()
+          && resource.data.userId == request.auth.uid
+          && request.resource.data.userId == resource.data.userId
+          && request.resource.data.createdAt == resource.data.createdAt;
         // allow update: if isSignedIn()
         //   && resource.data.userId == request.auth.uid
         //   && request.resource.data.userId == resource.data.userId
