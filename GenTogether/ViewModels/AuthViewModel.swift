@@ -21,6 +21,8 @@ enum AuthLoadingAction: Equatable {
     case google
     case guest
     case passwordReset
+    case profileUpdate
+    case deleteAccount
 }
 
 @MainActor
@@ -32,6 +34,14 @@ final class AuthViewModel: ObservableObject {
     @Published private(set) var isAnonymous = false
     @Published private(set) var currentUserId: String?
     @Published private(set) var displayName: String?
+    @Published private(set) var email: String?
+
+    /// Set when a sensitive operation (currently just account deletion)
+    /// was refused for having too old a session. The view watching this
+    /// should prompt for the right credential — see `reauthProvider` for
+    /// which kind — then call `reauthenticateAndRetryDeleteAccount`.
+    @Published private(set) var needsReauthentication = false
+    @Published private(set) var reauthProvider: AuthService.ReauthProvider?
 
     /// True while any authentication operation is running. Kept for call
     /// sites that don't need to distinguish which button triggered it.
@@ -39,12 +49,14 @@ final class AuthViewModel: ObservableObject {
 
     private let authService: AuthService
     private let userService: UserService
+    private let communityService: CommunityService
     private var cancellable: AnyCancellable?
 
-    init(authService: AuthService? = nil, userService: UserService? = nil) {
+    init(authService: AuthService? = nil, userService: UserService? = nil, communityService: CommunityService? = nil) {
         let authService = authService ?? .shared
         self.authService = authService
         self.userService = userService ?? .shared
+        self.communityService = communityService ?? .shared
         cancellable = authService.$firebaseUser
             .receive(on: DispatchQueue.main)
             .sink { [weak self] user in
@@ -52,6 +64,7 @@ final class AuthViewModel: ObservableObject {
                 self?.isAnonymous = user?.isAnonymous ?? false
                 self?.currentUserId = user?.uid
                 self?.displayName = user?.displayName ?? (user?.isAnonymous == true ? "Guest" : nil)
+                self?.email = user?.email
             }
     }
 
@@ -147,6 +160,20 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
+    /// Saves a new display name to both Firestore (`users/{uid}.displayName`,
+    /// what the app reads back on future launches) and Firebase Auth's own
+    /// `user.displayName` (what this view model's own `displayName`
+    /// actually reflects live — see `AuthService.updateCurrentUserDisplayName`).
+    /// Skipping either half would leave the two out of sync until the next
+    /// full relaunch.
+    func updateDisplayName(_ displayName: String) async {
+        await run(as: .profileUpdate) {
+            guard let userId = self.currentUserId else { return }
+            try await self.userService.updateDisplayName(userId: userId, displayName: displayName)
+            try await self.authService.updateCurrentUserDisplayName(displayName)
+        }
+    }
+
     func signInWithGoogle() async {
         await run(as: .google) {
             guard let presenter = Self.topViewController() else {
@@ -186,6 +213,112 @@ final class AuthViewModel: ObservableObject {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    // MARK: Account deletion
+
+    /// Permanently deletes the signed-in account: reassigns their community
+    /// posts/comments to "[deleted user]" (content, likes, and other
+    /// users' replies are left untouched), deletes their Firestore user
+    /// document and local game progress, then deletes the Firebase Auth
+    /// user itself — in that order, since the Firestore steps need
+    /// `request.auth` to still resolve to this uid.
+    ///
+    /// `gameProgress` is passed in rather than held as a stored dependency
+    /// because it's a separate `@Environment` object scoped to the view
+    /// hierarchy, not something AuthViewModel otherwise needs — this keeps
+    /// the coupling to just this one call site.
+    func deleteAccount(gameProgress: GameProgress) async {
+        guard loadingAction == .none, let userId = currentUserId else { return }
+        loadingAction = .deleteAccount
+        errorMessage = nil
+        infoMessage = nil
+        needsReauthentication = false
+
+        #if DEBUG
+        print("[AuthViewModel] deleteAccount — step 1/4: anonymizing community content for uid \(userId)")
+        #endif
+
+        do {
+            try await communityService.anonymizeContent(forDeletedUserId: userId)
+
+            #if DEBUG
+            print("[AuthViewModel] deleteAccount — step 2/4: deleting users/\(userId)")
+            #endif
+            try await userService.deleteUserDocument(userId: userId)
+
+            #if DEBUG
+            print("[AuthViewModel] deleteAccount — step 3/4: clearing local game progress for uid \(userId)")
+            #endif
+            gameProgress.clearProgress(forUserId: userId)
+
+            #if DEBUG
+            print("[AuthViewModel] deleteAccount — step 4/4: deleting Firebase Auth user \(userId)")
+            #endif
+            try await authService.deleteCurrentUser()
+
+            userService.resetLocalUserState()
+            #if DEBUG
+            print("[AuthViewModel] deleteAccount — all steps completed for uid \(userId)")
+            #endif
+        } catch AuthServiceError.reauthenticationRequired {
+            // Everything above this point is safe to redo — reassigning
+            // already-"[deleted user]" content, deleting an
+            // already-deleted Firestore doc, and clearing already-empty
+            // local progress are all no-ops — so the retry after
+            // reauthenticating just runs this whole function again rather
+            // than needing to resume partway through.
+            reauthProvider = authService.currentUserReauthProvider()
+            needsReauthentication = true
+        } catch {
+            #if DEBUG
+            print("[AuthViewModel] deleteAccount FAILED for uid \(userId) — the step above this line in the console is the one that threw. Underlying error: \(error)")
+            #endif
+            errorMessage = error.localizedDescription
+        }
+
+        loadingAction = .none
+    }
+
+    /// Call after the view has re-collected the user's password in
+    /// response to `needsReauthentication` (with `reauthProvider == .password`).
+    func reauthenticateWithPasswordAndRetryDeletion(password: String, gameProgress: GameProgress) async {
+        guard let email else {
+            errorMessage = "Couldn't find your email to confirm your password."
+            return
+        }
+        do {
+            try await authService.reauthenticateWithPassword(email: email, password: password)
+        } catch {
+            errorMessage = error.localizedDescription
+            return
+        }
+        needsReauthentication = false
+        await deleteAccount(gameProgress: gameProgress)
+    }
+
+    /// Call in response to `needsReauthentication` when `reauthProvider == .google`
+    /// — re-triggers the Google sign-in sheet rather than collecting a password.
+    func reauthenticateWithGoogleAndRetryDeletion(gameProgress: GameProgress) async {
+        guard let presenter = Self.topViewController() else {
+            errorMessage = "Couldn't find a screen to present Google Sign-In from."
+            return
+        }
+        do {
+            try await authService.reauthenticateWithGoogle(presenting: presenter)
+        } catch {
+            errorMessage = error.localizedDescription
+            return
+        }
+        needsReauthentication = false
+        await deleteAccount(gameProgress: gameProgress)
+    }
+
+    /// The user backed out of the reauthentication prompt — leaves the
+    /// account exactly as it was; nothing was deleted yet.
+    func cancelReauthentication() {
+        needsReauthentication = false
+        reauthProvider = nil
     }
 
     private func run(as action: AuthLoadingAction, _ operation: @escaping () async throws -> Void) async {

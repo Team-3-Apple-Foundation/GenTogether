@@ -211,6 +211,98 @@ final class AuthService: ObservableObject {
         }
     }
 
+    // MARK: Account deletion
+
+    /// Which credential type is needed to re-prove identity before a
+    /// sensitive operation (account deletion) is allowed to proceed —
+    /// mirrors whichever provider `currentUser.providerData` actually has.
+    /// Firebase's own provider ID strings ("password", "google.com") are
+    /// used directly rather than an SDK constant, since which exact
+    /// constant name FirebaseAuth exports has changed across versions.
+    enum ReauthProvider {
+        case password
+        case google
+    }
+
+    /// `nil` means no known reauth path — shouldn't happen for any account
+    /// that reached the Logged-in Account screen (which requires a real,
+    /// non-anonymous provider), but is left un-forced so a caller can
+    /// surface a clear error instead of crashing if it ever does.
+    func currentUserReauthProvider() -> ReauthProvider? {
+        guard let providerIds = Auth.auth().currentUser?.providerData.map(\.providerID) else { return nil }
+        if providerIds.contains("password") { return .password }
+        if providerIds.contains("google.com") { return .google }
+        return nil
+    }
+
+    func reauthenticateWithPassword(email: String, password: String) async throws {
+        try FirebaseEnvironment.requireConfigured()
+        guard let user = Auth.auth().currentUser else { throw AuthServiceError.notSignedIn }
+        let credential = EmailAuthProvider.credential(withEmail: email, password: password)
+        do {
+            try await user.reauthenticate(with: credential)
+        } catch {
+            throw AuthServiceError.reauthenticationFailed(error)
+        }
+    }
+
+    func reauthenticateWithGoogle(presenting viewController: UIViewController) async throws {
+        try FirebaseEnvironment.requireConfigured()
+        guard let user = Auth.auth().currentUser else { throw AuthServiceError.notSignedIn }
+        do {
+            let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: viewController)
+            guard let idToken = result.user.idToken?.tokenString else {
+                throw AuthServiceError.googleSignInFailed(GoogleSignInError.missingIDToken)
+            }
+            let credential = GoogleAuthProvider.credential(
+                withIDToken: idToken,
+                accessToken: result.user.accessToken.tokenString
+            )
+            try await user.reauthenticate(with: credential)
+        } catch {
+            throw AuthServiceError.reauthenticationFailed(error)
+        }
+    }
+
+    /// Deletes the Firebase Auth user itself. Call this LAST in the account
+    /// deletion sequence — Firestore data (community content, the user
+    /// document) has to be cleaned up first while `request.auth` still
+    /// resolves to this uid, since this call ends the session outright.
+    ///
+    /// If the sign-in session is stale, Firebase refuses this with a
+    /// "requires recent login" error rather than actually deleting —
+    /// detected here (not left for the caller to parse out of a wrapped
+    /// NSError, which loses the original error code once bridged into a
+    /// Swift enum) and surfaced as the dedicated `.reauthenticationRequired`
+    /// case. The caller should catch that specific case, reauthenticate via
+    /// `reauthenticateWithPassword`/`reauthenticateWithGoogle` above, then
+    /// call `deleteCurrentUser()` again.
+    func deleteCurrentUser() async throws {
+        try FirebaseEnvironment.requireConfigured()
+        guard let user = Auth.auth().currentUser else { throw AuthServiceError.notSignedIn }
+        #if DEBUG
+        print("[AuthService] DELETE Firebase Auth user \(user.uid)")
+        #endif
+        do {
+            try await user.delete()
+            #if DEBUG
+            print("[AuthService] DELETE Firebase Auth user \(user.uid) succeeded")
+            #endif
+        } catch {
+            let nsError = error as NSError
+            if AuthErrorCode(rawValue: nsError.code) == .requiresRecentLogin {
+                #if DEBUG
+                print("[AuthService] DELETE Firebase Auth user \(user.uid) needs reauthentication (requiresRecentLogin)")
+                #endif
+                throw AuthServiceError.reauthenticationRequired
+            }
+            #if DEBUG
+            print("[AuthService] FAILED DELETE Firebase Auth user \(user.uid) — domain: \(nsError.domain), code: \(nsError.code), message: \(nsError.localizedDescription)")
+            #endif
+            throw AuthServiceError.deleteAccountFailed(error)
+        }
+    }
+
     private func applyDisplayName(_ displayName: String, to user: User) async throws {
         guard !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         let changeRequest = user.createProfileChangeRequest()
@@ -241,17 +333,23 @@ final class AuthService: ObservableObject {
 
 enum AuthServiceError: LocalizedError {
     case noAnonymousUserToLink
+    case notSignedIn
     case signInFailed(Error)
     case createAccountFailed(Error)
     case signOutFailed(Error)
     case linkingFailed(Error)
     case googleSignInFailed(Error)
     case passwordResetFailed(Error)
+    case reauthenticationRequired
+    case reauthenticationFailed(Error)
+    case deleteAccountFailed(Error)
 
     var errorDescription: String? {
         switch self {
         case .noAnonymousUserToLink:
             return "There is no guest session to upgrade. Continue as a guest first."
+        case .notSignedIn:
+            return "You're not signed in."
         case .signInFailed(let error):
             return "Couldn't sign in: \(error.localizedDescription)"
         case .createAccountFailed(let error):
@@ -264,6 +362,12 @@ enum AuthServiceError: LocalizedError {
             return "Couldn't sign in with Google: \(error.localizedDescription)"
         case .passwordResetFailed(let error):
             return "Couldn't send the reset email: \(error.localizedDescription)"
+        case .reauthenticationRequired:
+            return "For your security, please confirm your identity again before deleting your account."
+        case .reauthenticationFailed(let error):
+            return "Couldn't confirm your identity: \(error.localizedDescription)"
+        case .deleteAccountFailed(let error):
+            return "Couldn't delete your account: \(error.localizedDescription)"
         }
     }
 }

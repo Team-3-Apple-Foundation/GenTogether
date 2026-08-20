@@ -178,6 +178,177 @@ final class CommunityService {
         }
     }
 
+    // MARK: Account deletion
+
+    /// Displayed in place of the real name on any post/comment written by
+    /// a since-deleted account — Reddit-style. The content, likes, and
+    /// comment threads underneath are left completely untouched; only this
+    /// one field changes.
+    static let deletedUserDisplayName = "[deleted user]"
+
+    /// Reassigns `displayName` (never `userId` — Firebase never reuses
+    /// UIDs, so the old value stays harmless) on every post and comment
+    /// this user authored. Must run while `userId` is still the signed-in
+    /// user: firestore.rules requires `resource.data.userId == request.auth.uid`
+    /// for these updates, so this has to happen before
+    /// `AuthService.deleteCurrentUser()` ends that session.
+    ///
+    /// Finding every comment needs a `collectionGroup("comments")` query
+    /// (comments live under each individual post, not one shared
+    /// collection) — Firestore requires a matching collection-group index
+    /// for that query to run; the first live attempt will fail with a
+    /// direct console link to create it if it's missing.
+    func anonymizeContent(forDeletedUserId userId: String) async throws {
+        try FirebaseEnvironment.requireConfigured()
+
+        // Each step logs its own path/verb *before* attempting it, and the
+        // exact Firestore error domain/code if it fails — so a permission
+        // error here points at one specific query or write instead of
+        // leaving three candidates to guess between.
+        let posts: QuerySnapshot
+        do {
+            #if DEBUG
+            print("[CommunityService] READ communityPosts where userId == \(userId)")
+            #endif
+            posts = try await db.collection("communityPosts")
+                .whereField("userId", isEqualTo: userId)
+                .getDocuments()
+            #if DEBUG
+            print("[CommunityService] READ communityPosts — found \(posts.documents.count) document(s)")
+            #endif
+        } catch {
+            Self.debugLogFailure("READ communityPosts where userId == \(userId)", error)
+            throw CommunityServiceError.readFailed(error)
+        }
+
+        let comments: QuerySnapshot
+        do {
+            #if DEBUG
+            print("[CommunityService] READ collectionGroup(comments) where userId == \(userId)")
+            #endif
+            comments = try await db.collectionGroup("comments")
+                .whereField("userId", isEqualTo: userId)
+                .getDocuments()
+            #if DEBUG
+            print("[CommunityService] READ collectionGroup(comments) — found \(comments.documents.count) document(s)")
+            #endif
+        } catch {
+            Self.debugLogFailure("READ collectionGroup(comments) where userId == \(userId)", error)
+            throw CommunityServiceError.readFailed(error)
+        }
+
+        // The exact payload sent for every document in this batch — named
+        // once so the log below and the actual write below it are
+        // provably the same dictionary, not just similar-looking code.
+        let updatePayload: [String: Any] = ["displayName": Self.deletedUserDisplayName]
+
+        #if DEBUG
+        print("[CommunityService] update payload for every document in this batch: \(updatePayload) — keys: \(Array(updatePayload.keys))")
+
+        // Dumps exactly the fields firestore.rules' allow-update conditions
+        // check (userId, createdAt, content, and — for posts —
+        // communityQuestionId), read straight from what's actually stored,
+        // rather than what the Swift model assumes is there. createdAt is
+        // decoded to its raw .seconds/.nanoseconds so a genuine precision
+        // mismatch would actually be visible here — a Timestamp's default
+        // description can visually round away exactly that.
+        for document in posts.documents {
+            let data = document.data()
+            let createdAt = data["createdAt"] as? Timestamp
+            // `data.keys.contains(...)` distinguishes "key absent from the
+            // document entirely" (Swift dictionary lookup returns nil
+            // because there's nothing there) from "key present, value is
+            // Firestore's null" (lookup returns Optional(NSNull) — still
+            // prints via String(describing:), but the key genuinely
+            // exists). Firestore Rules treats a dot-accessed *missing* key
+            // very differently from an *explicit null* value — the former
+            // can throw a rule-evaluation error, which Firestore denies by
+            // default, surfacing as the same permission-denied message.
+            let hasCommunityQuestionIdKey = data.keys.contains("communityQuestionId")
+            print("""
+            [CommunityService] pre-update snapshot — communityPosts/\(document.documentID): \
+            userId=\(String(describing: data["userId"])), \
+            createdAt.seconds=\(String(describing: createdAt?.seconds)), \
+            createdAt.nanoseconds=\(String(describing: createdAt?.nanoseconds)), \
+            communityQuestionId key present?=\(hasCommunityQuestionIdKey), \
+            communityQuestionId value=\(String(describing: data["communityQuestionId"])), \
+            content=\(String(describing: data["content"])) (\(type(of: data["content"])))
+            """)
+        }
+        for document in comments.documents {
+            let data = document.data()
+            let content = data["content"] as? String
+            let createdAt = data["createdAt"] as? Timestamp
+            print("""
+            [CommunityService] pre-update snapshot — \(document.reference.path): \
+            userId=\(String(describing: data["userId"])), \
+            createdAt.seconds=\(String(describing: createdAt?.seconds)), \
+            createdAt.nanoseconds=\(String(describing: createdAt?.nanoseconds)), \
+            content=\(String(describing: content)), \
+            content.count(Swift chars)=\(content?.count ?? -1), \
+            content UTF8 byte size (what firestore.rules' .size() actually checks)=\(content?.utf8.count ?? -1)
+            """)
+        }
+        #endif
+
+        #if DEBUG
+        // Isolated diagnostic: the exact same updateData(_:) call, on the
+        // exact same document, with NO WriteBatch involved at all — rules
+        // out (or confirms) WriteBatch itself as a variable, separate from
+        // whatever's denying the batched version below. Non-fatal: this is
+        // purely diagnostic, so a failure here doesn't stop the real flow.
+        await Self.debugIsolatedSingleDocumentUpdateTest(db: db, updatePayload: updatePayload)
+        #endif
+
+        let batch = db.batch()
+        for document in posts.documents {
+            batch.updateData(updatePayload, forDocument: document.reference)
+        }
+        for document in comments.documents {
+            batch.updateData(updatePayload, forDocument: document.reference)
+        }
+
+        do {
+            #if DEBUG
+            print("[CommunityService] UPDATE (batch) \(posts.documents.count) post(s) + \(comments.documents.count) comment(s) — displayName -> \"\(Self.deletedUserDisplayName)\"")
+            #endif
+            try await batch.commit()
+            #if DEBUG
+            print("[CommunityService] UPDATE (batch) committed successfully")
+            #endif
+        } catch {
+            Self.debugLogFailure("UPDATE (batch) displayName on \(posts.documents.count) post(s) + \(comments.documents.count) comment(s)", error)
+            throw CommunityServiceError.writeFailed(error)
+        }
+    }
+
+    private static func debugLogFailure(_ operation: String, _ error: Error) {
+        #if DEBUG
+        let nsError = error as NSError
+        print("[CommunityService] FAILED \(operation) — domain: \(nsError.domain), code: \(nsError.code), message: \(nsError.localizedDescription)")
+        #endif
+    }
+
+    #if DEBUG
+    /// Isolated repro: the exact same field update, on the exact same
+    /// known-failing document, called directly with no WriteBatch — rules
+    /// out WriteBatch semantics as a variable, separate from whatever's
+    /// denying the batched version. Hardcoded path is deliberate; this is
+    /// a temporary diagnostic, not something meant to stay long-term.
+    private static func debugIsolatedSingleDocumentUpdateTest(db: Firestore, updatePayload: [String: Any]) async {
+        let path = "communityPosts/egACwAiyRLL92udBcqNX/comments/nUD4CNpAe7ed9U23M2wn"
+        let ref = db.document(path)
+        print("[CommunityService] ISOLATED TEST — single (non-batch) UPDATE at \(path) with payload \(updatePayload)")
+        do {
+            try await ref.updateData(updatePayload)
+            print("[CommunityService] ISOLATED TEST — succeeded")
+        } catch {
+            let nsError = error as NSError
+            print("[CommunityService] ISOLATED TEST — FAILED — domain: \(nsError.domain), code: \(nsError.code), message: \(nsError.localizedDescription)")
+        }
+    }
+    #endif
+
     // MARK: Helpers
 
     private static func validated(content: String) throws -> String {

@@ -85,4 +85,18 @@ class GameProgress {
         completedChallengeIds = []
         save()
     }
+
+    /// Permanently wipes one specific account's local progress, regardless
+    /// of which account is currently active — used when that account is
+    /// deleted, so its data doesn't linger forever in UserDefaults under a
+    /// uid nothing can sign into again. Distinct from `resetAllProgress()`,
+    /// which only ever touches whichever account is currently loaded, and
+    /// intentionally doesn't rely on `setCurrentUser` having run first —
+    /// deletion needs this to work off the uid being deleted directly.
+    func clearProgress(forUserId userId: String) {
+        UserDefaults.standard.removeObject(forKey: "completedChallengeIds.\(userId)")
+        if self.userId == userId {
+            completedChallengeIds = []
+        }
+    }
 }

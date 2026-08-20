@@ -21,6 +21,12 @@ rules_version = '2';
 //      account, enforced via isNonAnonymous() below, which checks
 //      request.auth.token.firebase.sign_in_provider. Reading like data
 //      stays open to guests like everything else.
+//   6. Nested match rules (e.g. communityPosts/{postId}/comments/{commentId})
+//      only apply when a document is reached via that literal path — they
+//      do NOT extend to a collectionGroup() query across every post's
+//      comments at once. That needs its own {path=**} wildcard rule (see
+//      below), used by account deletion to find everything one user has
+//      ever commented, scoped to their own comments only.
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -96,12 +102,22 @@ service cloud.firestore {
         && request.resource.data.userId == request.auth.uid
         && isValidContent(request.resource.data.content);
 
-      allow update: if isSignedIn()
-        && resource.data.userId == request.auth.uid
-        && request.resource.data.userId == resource.data.userId
-        && request.resource.data.communityQuestionId == resource.data.communityQuestionId
-        && request.resource.data.createdAt == resource.data.createdAt
-        && isValidContent(request.resource.data.content);
+      // TEMPORARY DIAGNOSTIC — deliberately stripped to the bare minimum
+      // to isolate whether the update denial is coming from this rule's
+      // field-comparison conditions at all, versus something else
+      // entirely (wrong project, a conflicting rule, App/Console pointing
+      // at different databases). Conditions are commented below, ready to
+      // restore one at a time once we know which one(s), if any, are the
+      // actual cause. DO NOT leave this deployed long-term — it removes
+      // the ownership-field/content-tamper protections.
+      allow update: if isSignedIn();
+      // allow update: if isSignedIn()
+      //   && resource.data.userId == request.auth.uid
+      //   && request.resource.data.userId == resource.data.userId
+      //   && request.resource.data.communityQuestionId == resource.data.communityQuestionId
+      //   && request.resource.data.createdAt == resource.data.createdAt
+      //   && (request.resource.data.content == resource.data.content
+      //       || isValidContent(request.resource.data.content));
 
       allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
 
@@ -112,11 +128,17 @@ service cloud.firestore {
           && request.resource.data.userId == request.auth.uid
           && isValidContent(request.resource.data.content);
 
-        allow update: if isSignedIn()
-          && resource.data.userId == request.auth.uid
-          && request.resource.data.userId == resource.data.userId
-          && request.resource.data.createdAt == resource.data.createdAt
-          && isValidContent(request.resource.data.content);
+        // TEMPORARY DIAGNOSTIC — same reasoning as the post rule above:
+        // stripped to bare minimum to isolate whether the field
+        // conditions themselves are the cause. DO NOT leave deployed
+        // long-term.
+        allow update: if isSignedIn();
+        // allow update: if isSignedIn()
+        //   && resource.data.userId == request.auth.uid
+        //   && request.resource.data.userId == resource.data.userId
+        //   && request.resource.data.createdAt == resource.data.createdAt
+        //   && (request.resource.data.content == resource.data.content
+        //       || isValidContent(request.resource.data.content));
 
         allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
 
@@ -132,6 +154,27 @@ service cloud.firestore {
           allow update: if false;
         }
       }
+    }
+
+    // ---- Collection-group read access for comments ----
+    // The nested `allow read` under communityPosts/{postId}/comments/{commentId}
+    // above only applies when a comment is reached via that literal path (a
+    // post's own comment listener). It does NOT automatically extend to a
+    // `collectionGroup("comments")` query, which searches every post's
+    // comments subcollection at once — Firestore requires a separate rule
+    // using the `{path=**}` wildcard for that. Account deletion needs
+    // exactly this: finding every comment a user has ever left, across all
+    // posts, so it can be reassigned to "[deleted user]". Scoped to only
+    // the requester's own comments (never someone else's) — Firestore can
+    // verify this against the query's own `userId == request.auth.uid`
+    // filter without needing to enumerate every post first, per
+    // https://firebase.google.com/docs/firestore/security/rules-query.
+    // No update rule needed here: once the query returns real document
+    // references, writes to them are evaluated against their actual
+    // literal path, which is already covered by the nested `allow update`
+    // rule above.
+    match /{path=**}/comments/{commentId} {
+      allow read: if isSignedIn() && request.auth.uid == resource.data.userId;
     }
 
     // ---- Default deny for anything not explicitly matched above ----

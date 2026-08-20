@@ -151,7 +151,7 @@ private struct CommunityPostRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
-                avatar
+                InitialsAvatar(name: post.displayName, diameter: 36)
                 Text(post.displayName)
                     .font(.subheadline.weight(.bold))
                 Spacer()
@@ -248,18 +248,6 @@ private struct CommunityPostRow: View {
         .frame(minWidth: 240)
     }
 
-    /// Circular brand-orange avatar showing the display name's first
-    /// letter — more identifiable at a glance than a generic person icon.
-    private var avatar: some View {
-        Circle()
-            .fill(GTColor.brand)
-            .frame(width: 36, height: 36)
-            .overlay(
-                Text(post.displayName.prefix(1).uppercased())
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(.white)
-            )
-    }
 }
 
 /// A tight icon + count pairing for a post's like/comment stats. Shared

@@ -3,7 +3,7 @@ import SwiftUI
 
 /// Profile tab's landing screen — a settings hub. Each row here just
 /// navigates somewhere else; none of these rows hold real settings logic
-/// themselves (that lives in the pushed screens, e.g. ManageAccountView).
+/// themselves (that lives in the pushed screens, e.g. GuestAccountView).
 struct ProfileView: View {
     @EnvironmentObject private var authViewModel: AuthViewModel
     // Not wired to real app-wide dark mode yet — that's a separate task.
@@ -19,13 +19,17 @@ struct ProfileView: View {
                     VStack(alignment: .leading, spacing: 24) {
                         group("Manage Account") {
                             NavigationLink {
-                                ManageAccountView()
+                                if authViewModel.isAnonymous {
+                                    GuestAccountView()
+                                } else {
+                                    LoggedInAccountView()
+                                }
                             } label: {
                                 ProfileRow(
                                     title: authViewModel.displayName ?? "Guest",
                                     subtitle: "Update your details"
                                 ) {
-                                    avatarIcon
+                                    InitialsAvatar(name: authViewModel.displayName ?? "G")
                                 } trailing: {
                                     chevron
                                 }
@@ -133,19 +137,6 @@ struct ProfileView: View {
             }
     }
 
-    /// Circular brand-orange avatar showing the display name's first
-    /// letter — matches the avatar style already used for post authors
-    /// in the Community tab.
-    private var avatarIcon: some View {
-        Circle()
-            .fill(GTColor.brand)
-            .frame(width: 44, height: 44)
-            .overlay(
-                Text((authViewModel.displayName ?? "G").prefix(1).uppercased())
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(.white)
-            )
-    }
 }
 
 /// A single settings row: leading icon, title + subtitle, trailing

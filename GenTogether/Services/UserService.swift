@@ -103,6 +103,29 @@ final class UserService {
         }
     }
 
+    /// Deletes users/{userId} itself — part of account deletion. Call this
+    /// while the user is still authenticated as `userId` (Firestore rules
+    /// require `isOwner(userId)`), and before `AuthService.deleteCurrentUser()`
+    /// ends that session.
+    func deleteUserDocument(userId: String) async throws {
+        try FirebaseEnvironment.requireConfigured()
+        do {
+            #if DEBUG
+            print("[UserService] DELETE users/\(userId)")
+            #endif
+            try await userDocument(userId).delete()
+            #if DEBUG
+            print("[UserService] DELETE users/\(userId) succeeded")
+            #endif
+        } catch {
+            #if DEBUG
+            let nsError = error as NSError
+            print("[UserService] FAILED DELETE users/\(userId) — domain: \(nsError.domain), code: \(nsError.code), message: \(nsError.localizedDescription)")
+            #endif
+            throw UserServiceError.writeFailed(error)
+        }
+    }
+
     /// Called on sign-out to clear any in-memory user state the app holds
     /// outside Firestore (view model caches, etc.). UserService itself has
     /// no such state — it only ever reads/writes Firestore directly — so
