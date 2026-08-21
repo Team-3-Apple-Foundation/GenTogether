@@ -139,32 +139,35 @@ service cloud.firestore {
       // narrowly enough that it can't be used to smuggle in a content
       // edit or tamper with someone else's like.
       //
-      // TEMPORARY DIAGNOSTIC — step 2/4: userId + createdAt conditions
-      // restored, communityQuestionId/content still disabled below.
-      // DO NOT leave this deployed long-term.
+      // communityQuestionId has never actually been part of CommunityPost
+      // (see Models/CommunityPost.swift) — every post written by the app
+      // simply doesn't have this key, not "has it set to null". Comparing
+      // it via dot notation (resource.data.communityQuestionId) throws on
+      // a genuinely-missing key rather than evaluating to null, and that
+      // error fails the ENTIRE allow-update expression it's part of — not
+      // just this one && clause — which is exactly why restoring this
+      // condition broke the unrelated like-toggle branch too. .get(key,
+      // default) is the safe, standard way to read a possibly-absent
+      // field in Firestore Rules without throwing.
+      //
+      // TEMPORARY DIAGNOSTIC — step 4/4: all conditions restored
+      // (userId, communityQuestionId via safe .get(), createdAt, content
+      // — only validated when actually changing — plus the like-toggle
+      // branch). Pending one more test pass before this diagnostic
+      // labeling is removed.
       allow update: if isSignedIn()
         && request.resource.data.userId == resource.data.userId
+        && request.resource.data.get('communityQuestionId', null) == resource.data.get('communityQuestionId', null)
         && request.resource.data.createdAt == resource.data.createdAt
         && (
-          resource.data.userId == request.auth.uid
+          (resource.data.userId == request.auth.uid
+            && (request.resource.data.content == resource.data.content
+                || isValidContent(request.resource.data.content)))
           || (
             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy'])
             && onlyTogglesOwnUid(resource.data.likedBy, request.resource.data.likedBy)
           )
         );
-      // allow update: if isSignedIn()
-      //   && request.resource.data.userId == resource.data.userId
-      //   && request.resource.data.communityQuestionId == resource.data.communityQuestionId
-      //   && request.resource.data.createdAt == resource.data.createdAt
-      //   && (
-      //     (resource.data.userId == request.auth.uid
-      //       && (request.resource.data.content == resource.data.content
-      //           || isValidContent(request.resource.data.content)))
-      //     || (
-      //       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy'])
-      //       && onlyTogglesOwnUid(resource.data.likedBy, request.resource.data.likedBy)
-      //     )
-      //   );
 
       allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
 
@@ -175,19 +178,15 @@ service cloud.firestore {
           && request.resource.data.userId == request.auth.uid
           && isValidContent(request.resource.data.content);
 
-        // TEMPORARY DIAGNOSTIC — step 2/4: userId + createdAt conditions
-        // restored, content still disabled below. DO NOT leave this
-        // deployed long-term.
+        // TEMPORARY DIAGNOSTIC — step 4/4: all conditions restored.
+        // Pending one more test pass before this diagnostic labeling is
+        // removed.
         allow update: if isSignedIn()
           && resource.data.userId == request.auth.uid
           && request.resource.data.userId == resource.data.userId
-          && request.resource.data.createdAt == resource.data.createdAt;
-        // allow update: if isSignedIn()
-        //   && resource.data.userId == request.auth.uid
-        //   && request.resource.data.userId == resource.data.userId
-        //   && request.resource.data.createdAt == resource.data.createdAt
-        //   && (request.resource.data.content == resource.data.content
-        //       || isValidContent(request.resource.data.content));
+          && request.resource.data.createdAt == resource.data.createdAt
+          && (request.resource.data.content == resource.data.content
+              || isValidContent(request.resource.data.content));
 
         allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
 
